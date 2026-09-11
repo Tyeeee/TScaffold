@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      component_basic（最底层，留给你自己的基础能力）
+      现在这里什么都不需要声明。以后要加权限、服务、文件共享（FileProvider）等，
+      直接写在这个 application 标签里面即可。
+    -->
+
+</manifest>

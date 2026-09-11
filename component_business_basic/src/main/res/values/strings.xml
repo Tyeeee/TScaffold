@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="business_basic_counter_increase">加一</string>
+    <string name="business_basic_counter_decrease">减一</string>
+    <string name="business_basic_counter_reset">归零</string>
+    <string name="business_basic_counter_default_message">点一下按钮试试</string>
+</resources>

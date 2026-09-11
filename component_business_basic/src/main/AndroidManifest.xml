@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      component_business_basic（示例业务层）
+      这里放的是两个示例页面，你要写自己的页面时照抄这两个的结构即可：
+      - CounterActivity        ：用 XML 布局写的版本
+      - CounterComposeActivity ：用 Compose 写的版本
+      两个页面共用同一个 CounterViewModel。
+    -->
+    <application>
+
+        <activity
+            android:name="com.scaffold.component.business.basic.ui.counter.view.CounterActivity"
+            android:exported="false"
+            android:theme="@style/business_basic_theme" />
+
+        <activity
+            android:name="com.scaffold.component.business.basic.ui.counter.compose.CounterComposeActivity"
+            android:exported="false"
+            android:theme="@style/business_basic_theme" />
+
+    </application>
+
+</manifest>

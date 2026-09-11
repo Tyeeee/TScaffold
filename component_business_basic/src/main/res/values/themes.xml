@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      用 XML 写页面时，Activity 必须挂一个 AppCompat 主题，否则打开就闪退。
+      这里给示例页面用；你自己的页面可以继续用它，也可以在 app 里另外定义一个。
+    -->
+    <style name="business_basic_theme" parent="Theme.AppCompat.Light.NoActionBar" />
+
+</resources>
