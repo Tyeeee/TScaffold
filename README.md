@@ -61,7 +61,7 @@ app  →  component_business_basic  →  component_common  →  component_basic
 （外壳）      （你的页面）            （核心写法）        （基础能力）
 ```
 
-> **模块名保持 `component_*`，改的是模块内部的包名。**
+> **模块名保持 `component_*` 不动，这次只改了模块内部的包名。**
 > 模块名是 Gradle 的模块标识（`component_common`），包名是代码里的
 > `package` / `android.namespace`。模块名不动，包名把多余的 `component` 去掉：
 >
