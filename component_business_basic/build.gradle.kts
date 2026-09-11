@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.scaffold.component.business.basic"
+    namespace = "com.tscaffold.component.business.basic"
     // 资源名统一加前缀，避免以后多个模块重名打架
     resourcePrefix = "business_basic_"
 

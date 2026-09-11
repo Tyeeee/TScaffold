@@ -1,6 +1,6 @@
 // ============================================================================
-// Scaffold（框架工程，由母工程 MetaLiveAssistant 脚手架适配而来）
-// 分层：app（Compose 壳）→ component_business_basic → component_common → component_basic
+// TScaffold —— 只保留 MVI 写法的安卓骨架工程
+// 分层：app（应用外壳）→ component_business_basic（你的页面）→ component_common（MVI 核心）→ component_basic（基础能力）
 // 依赖与版本统一在 gradle/libs.versions.toml（Version Catalog）管理。
 // 说明：本机到部分 maven 源（repo.maven.apache.org / dl.google.com / api.foojay.io）的
 //       TLS 连接不稳定，故前置了官方镜像（repo1 / 阿里云 google 与 public 镜像）；
@@ -35,7 +35,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Scaffold"
+rootProject.name = "TScaffold"
 include(":app")
 include(":component_basic")
 include(":component_common")

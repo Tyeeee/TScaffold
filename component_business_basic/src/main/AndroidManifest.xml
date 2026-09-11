@@ -11,12 +11,12 @@
     <application>
 
         <activity
-            android:name="com.scaffold.component.business.basic.ui.counter.view.CounterActivity"
+            android:name="com.tscaffold.component.business.basic.ui.counter.view.CounterActivity"
             android:exported="false"
             android:theme="@style/business_basic_theme" />
 
         <activity
-            android:name="com.scaffold.component.business.basic.ui.counter.compose.CounterComposeActivity"
+            android:name="com.tscaffold.component.business.basic.ui.counter.compose.CounterComposeActivity"
             android:exported="false"
             android:theme="@style/business_basic_theme" />
 

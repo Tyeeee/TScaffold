@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.scaffold.component.common"
+    namespace = "com.tscaffold.component.common"
 
     compileSdk {
         version = release(37)

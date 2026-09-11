@@ -1,4 +1,4 @@
-# MVI 骨架工程
+# TScaffold —— 只保留 MVI 的安卓骨架工程
 
 一句话说明白：**这是一个只保留"页面怎么写"的最小安卓工程。**
 
@@ -45,7 +45,7 @@
 ## 二、工程结构
 
 ```
-Scaffold
+TScaffold
 ├── app                       应用外壳：只有一个首页，放两个按钮进示例
 ├── component_business_basic   ★ 你以后写页面的地方（现在是两个示例页面）
 ├── component_common           ★ MVI 核心（这套写法的全部家当都在这）
@@ -243,4 +243,4 @@ class YourComposeActivity : ComponentActivity() {
 1. 用 XML 写页面时，Activity 必须挂一个 AppCompat 主题（示例用的是 `business_basic_theme`），否则打开就闪退。
 2. 新模块的资源名记得加前缀（示例模块用的是 `business_basic_`），免得以后模块多了资源重名打架。
 3. 界面里不要写业务判断，全部塞进 `handleIntent`，这是这套写法唯一需要守的规矩。
-4. 包名 `com.scaffold` 是占位用的，正式开工时全局替换掉即可（`app` 的 `applicationId`、各模块 `namespace`、`settings.gradle.kts` 的 `rootProject.name`）。
+4. 名字都统一成 TScaffold 了：`settings.gradle.kts` 的 `rootProject.name`、`app` 的 `applicationId` 与 `namespace`、各模块 `namespace`、包名 `com.tscaffold`、应用显示名 `app_name`、Compose 主题 `TScaffoldTheme`、XML 主题 `Theme.TScaffold`。以后要换成正式名字，按这几处一次替掉即可。

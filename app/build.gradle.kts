@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "com.scaffold"
+    namespace = "com.tscaffold"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.scaffold"
+        applicationId = "com.tscaffold"
         minSdk = 24
         targetSdk = 37
         versionCode = 1

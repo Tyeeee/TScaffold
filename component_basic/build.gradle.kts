@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.scaffold.component.basic"
+    namespace = "com.tscaffold.component.basic"
 
     compileSdk {
         version = release(37)
