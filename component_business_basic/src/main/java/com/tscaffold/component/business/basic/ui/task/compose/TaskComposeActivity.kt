@@ -29,8 +29,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.tscaffold.component.business.basic.ui.task.contract.TaskContract
+import com.tscaffold.component.business.basic.ui.task.data.Task
 import com.tscaffold.component.business.basic.ui.task.viewmodel.TaskViewModel
 import com.tscaffold.component.common.ui.compose.observeEffect
 import com.tscaffold.component.common.ui.compose.observeState
@@ -38,13 +40,14 @@ import com.tscaffold.component.common.ui.compose.observeState
 /**
  * 任务列表页的 Compose 版。
  *
- * 和三份 XML 界面用的是**同一个** [TaskViewModel]、同一份 Contract，
+ * 和 XML 版用的是**同一个** [TaskViewModel]、同一份[TaskContract]，
  * ViewModel 里一行代码都不用改 —— 换界面写法不影响逻辑，这就是这套写法的意义。
  *
- * 对照着看：
- * - 状态：`val state by viewModel.observeState()`
- * - 操作：`viewModel.setIntent(...)`
- * - 事件：`viewModel.observeEffect { ... }`
+ * 注意这里的分工（和 MVI 的要求一致）：
+ * - 这个 Activity 负责"接线"：订阅状态、处理一次性事件、把用户的动作转给 ViewModel；
+ * - 下面的 [TaskScreen] 只接收"当前状态"和"上报操作的口子"，自己不碰 ViewModel。
+ *   所以它是**状态的函数**：给同样的状态，画出来的一定是同样的界面。
+ *   好处很直接 —— 想预览某个样子，直接造一个假状态丢进去就行（见文件末尾的预览）。
  */
 class TaskComposeActivity : ComponentActivity() {
 
@@ -55,7 +58,21 @@ class TaskComposeActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    TaskScreen(viewModel = viewModel)
+                    val state by viewModel.observeState()
+                    val context = LocalContext.current
+
+                    // 一次性事件：页面可见时才收，退到后台不会突然弹提示
+                    viewModel.observeEffect { effect ->
+                        when (effect) {
+                            is TaskContract.Effect.ShowToast ->
+                                Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+
+                    TaskScreen(
+                        state = state,
+                        onIntent = viewModel::setIntent,
+                    )
                 }
             }
         }
@@ -68,19 +85,17 @@ class TaskComposeActivity : ComponentActivity() {
     }
 }
 
+/**
+ * 界面本体。
+ *
+ * 它只认两样东西：现在是[state]什么样、用户做了什么要往哪儿报（[onIntent]）。
+ * 它不知道 ViewModel 长什么样，也不知道数据是从假仓库还是真接口来的。
+ */
 @Composable
-private fun TaskScreen(viewModel: TaskViewModel) {
-    val state by viewModel.observeState()
-    val context = LocalContext.current
-
-    // 一次性事件：页面可见时才收，退到后台不会突然弹提示
-    viewModel.observeEffect { effect ->
-        when (effect) {
-            is TaskContract.Effect.ShowToast ->
-                Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
-        }
-    }
-
+private fun TaskScreen(
+    state: TaskContract.State,
+    onIntent: (TaskContract.Intent) -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -92,7 +107,7 @@ private fun TaskScreen(viewModel: TaskViewModel) {
         )
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        // 中间这块：加载中 / 列表 / 空 / 出错，四种样子都从 state 里来
+        // 中间这块：加载中 / 列表 / 空 / 出错，四种样子都从 state 里推出来
         Box(modifier = Modifier.weight(1f)) {
             when {
                 state.loading -> CircularProgressIndicator(
@@ -111,18 +126,10 @@ private fun TaskScreen(viewModel: TaskViewModel) {
 
                 else -> Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     state.tasks.forEach { task ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.setIntent(TaskContract.Intent.Toggle(task.id))
-                                }
-                                .padding(vertical = 4.dp),
-                        ) {
-                            Checkbox(checked = task.done, onCheckedChange = null)
-                            Text(text = task.title, modifier = Modifier.padding(start = 8.dp))
-                        }
+                        TaskRow(
+                            task = task,
+                            onToggle = { onIntent(TaskContract.Intent.Toggle(task.id)) },
+                        )
                     }
                 }
             }
@@ -130,7 +137,7 @@ private fun TaskScreen(viewModel: TaskViewModel) {
 
         if (state.loadStatus == TaskContract.LoadStatus.Failed) {
             Button(
-                onClick = { viewModel.setIntent(TaskContract.Intent.Load) },
+                onClick = { onIntent(TaskContract.Intent.Load) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
@@ -146,17 +153,68 @@ private fun TaskScreen(viewModel: TaskViewModel) {
                 .padding(top = 8.dp),
         ) {
             Button(
-                onClick = { viewModel.setIntent(TaskContract.Intent.Refresh) },
+                onClick = { onIntent(TaskContract.Intent.Refresh) },
                 modifier = Modifier.weight(1f),
             ) {
                 Text("重新加载")
             }
             Button(
-                onClick = { viewModel.setIntent(TaskContract.Intent.ClearDone) },
+                onClick = { onIntent(TaskContract.Intent.ClearDone) },
                 modifier = Modifier.weight(1f),
             ) {
                 Text("清掉已完成")
             }
         }
+    }
+}
+
+/** 列表里的一行。同样的道理：只吃数据和"点了要报什么"，不碰 ViewModel。 */
+@Composable
+private fun TaskRow(
+    task: Task,
+    onToggle: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(vertical = 4.dp),
+    ) {
+        Checkbox(checked = task.done, onCheckedChange = null)
+        Text(text = task.title, modifier = Modifier.padding(start = 8.dp))
+    }
+}
+
+// ==================== 预览：不需要跑 App，也不需要 ViewModel ====================
+
+@Preview(showBackground = true, name = "有数据")
+@Composable
+private fun TaskScreenPreview() {
+    MaterialTheme {
+        TaskScreen(
+            state = TaskContract.State(
+                tasks = listOf(
+                    Task(1, "看一遍 BaseViewModel 里那三样东西", done = true),
+                    Task(2, "照着这个示例写一个自己的页面"),
+                ),
+                loadStatus = TaskContract.LoadStatus.Success,
+            ),
+            onIntent = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "加载失败")
+@Composable
+private fun TaskScreenFailedPreview() {
+    MaterialTheme {
+        TaskScreen(
+            state = TaskContract.State(
+                loadStatus = TaskContract.LoadStatus.Failed,
+                failMessage = "网络开小差了",
+            ),
+            onIntent = {},
+        )
     }
 }

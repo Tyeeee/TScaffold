@@ -44,4 +44,8 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui.tooling.preview)
+
+    // 单元测试：直接在电脑上跑，不用模拟器
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

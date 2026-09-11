@@ -44,4 +44,8 @@ dependencies {
     api(libs.androidx.lifecycle.runtime.compose)
     api(platform(libs.androidx.compose.bom))
     api(libs.androidx.compose.runtime)
+
+    // 单元测试：直接在电脑上跑，不用模拟器
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

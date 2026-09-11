@@ -15,15 +15,19 @@ class TaskContract {
 
     /**
      * 页面状态：界面上会变的东西全在这里。
-     * 注意这里既有"数据"（tasks），也有"页面现在处于哪一步"（loadStatus / loading / failMessage），
-     * 界面不需要自己判断，照着画就行。
+     *
+     * 这里只存"最原始的那几样"，其余能从它们推出来的，一律用计算属性现算
+     * （比如 [loading]、[total]、[doneCount]）。这样就不会出现"两个字段说的是一件事、
+     * 结果某次改了其中一个忘了另一个"的情况 —— 状态永远只有一个说法。
      */
     data class State(
-        val loading: Boolean = false,
         val tasks: List<Task> = emptyList(),
         val loadStatus: LoadStatus = LoadStatus.Idle,
         val failMessage: String? = null,
     ) : UiState {
+
+        /** 正在加载。直接由 [loadStatus] 推出来，不另外存一份。 */
+        val loading: Boolean get() = loadStatus == LoadStatus.Loading
 
         /** 一共几条（顶部统计用）。 */
         val total: Int get() = tasks.size

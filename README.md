@@ -86,6 +86,13 @@ app  →  component_business_basic  →  component_common  →  component_basic
 > 所以顶部的"已完成 x / y"和下面列表永远是同一份数据。
 > 另外 **一次性事件只在 Activity 一处收**——如果两处都收，一条提示会被抢着消费，出现"有时候弹有时候不弹"的怪现象。记住：状态可以多处订阅，事件只在一处处理。
 
+### 测试（在电脑上跑，不用模拟器）
+
+| 文件 | 作用 |
+|---|---|
+| `component_common/src/test/.../BaseViewModelTest.kt` | 盯住基类本身的行为（5 个用例） |
+| `component_business_basic/src/test/.../TaskViewModelTest.kt` | 盯住示例的数据流（8 个用例） |
+
 ### component_basic
 
 | 文件 | 作用 |
@@ -125,7 +132,63 @@ app  →  component_business_basic  →  component_common  →  component_basic
 
 ---
 
-## 四、核心代码长什么样
+## 四、和 MVI 的官方定义逐条对照
+
+MVI 不是随口叫的名字，它有两个明确出处：
+
+- **André Staltz**（Cycle.js 作者）2015 年提出，核心是"界面、状态、用户意图"三者绕成一个闭环；
+- **Hannes Dorfmann**（Mosby 作者）2017 年那组《Reactive Apps with Model-View-Intent》把它落到安卓上，定下了下面这几条。
+
+这个工程是照着这几条对过的，结果如下：
+
+| # | MVI 的要求（大白话） | 本工程 | 说明 |
+|---|---|---|---|
+| 1 | 数据只朝一个方向走：操作 → 状态 → 界面 → 操作 | ✅ 符合 | 界面只上报操作，改状态只有 ViewModel 能改 |
+| 2 | **界面是状态的函数**：自己不存东西、不做判断 | ✅ 符合 | XML 版是 `render(state)`；Compose 版的界面只接 `state` 和 `onIntent`，连 ViewModel 都拿不到 |
+| 3 | Intent 表示"用户想干什么" | ✅ 符合 | `TaskContract.Intent` 就是"用户点了什么、勾了哪条" |
+| 4 | 状态不可变，而且是**唯一的事实来源** | ✅ 符合 | 状态用 `data class` 装 `List`；能从别的字段算出来的一律现算（`loading`、`total`、`doneCount`），不另存一份 |
+| 5 | 状态变化要由纯函数算：新状态 = reduce(旧状态, 结果) | ⚠️ 简化了 | 见下面「第一处不同」 |
+| 6 | 网络、弹窗这类"跟外界打交道的事"不能写在状态计算和界面里 | ✅ 基本符合 | 取数据在 ViewModel 里；弹提示由界面执行（界面本来就是干这个的地方） |
+
+### 第一处不同：没有单独的 reduce 函数，而是写在处理操作的旁边
+
+严格版（Mosby 那套）会拆成两步：
+
+```
+用户操作 → 业务逻辑算出"结果" → 一个纯函数把"旧状态 + 结果"算成"新状态"
+```
+
+我们这个骨架里，`setState { copy(...) }` 的那个**大括号本身就是那个纯函数**（给同样的旧状态，一定算出同样的新状态），只是没有单独抽成一个方法。Airbnb 的 Mavericks 也是这个路子，所以这么写不算跑偏。
+
+- **换来的是**：代码短，不用每个页面都多写一个 reduce 方法，上手快。
+- **代价是**：动作多了以后，"这个状态会被哪些地方改"没法一眼看全，也做不了"操作回放"这类调试。
+- **什么时候该升级**：一页有十几个操作了，或者你要做操作回放调试，就把 reduce 单独拆出来。
+
+### 第二处不同：Effect（一次性事件）这条通道，标准 MVI 里没有
+
+标准 MVI 只有"状态"一个事实来源，连"弹一次提示"也要放进状态里（比如 `state.toastMessage`，弹完再上报一个"清掉提示"的操作）。
+
+我们额外加了一条 Channel 通道，原因很实在：用状态表示"弹一次提示"，得额外配一个"弹完请清掉"的操作，写起来啰嗦、还容易忘，一忘就会重复弹。
+
+- **代价是要守住一条纪律**：事件只在一处收。示例里只有 Activity 收 `uiEffect`，Fragment 只收 `uiState`。两处都收的话，一条提示会被两边抢着消费，表现就是"有时候弹有时候不弹"。
+
+### 核对的时候顺手修掉的三个坑（记在这，免得以后又踩）
+
+1. **基类不能在自己构造的时候去调子类的 `initializeState()`**。
+   基类的初始化比子类构造参数的赋值更早，子类要是在 `initializeState()` 里用了自己的构造参数，
+   对象类型会直接空指针，数字类型会**静默变成 0**——查起来非常费劲。
+   已经在 `BaseViewModel` 里改成"用到的时候才初始化"，并补了测试盯住它（测试先跑失败、改完才通过）。
+2. **同一个事实不要存两份**。
+   原来 `loading` 和 `loadStatus = Loading` 说的是一件事，哪天改了一处忘了另一处就对不上。
+   现在 `loading` 直接由 `loadStatus` 现算，状态里只留最原始的那几样。
+3. **Compose 的界面不该拿到 ViewModel**。
+   原来整个 ViewModel 传进了界面函数，界面就不是"状态的函数"了，也没法单独预览。
+   现在界面只接 `state` 和 `onIntent`，于是可以直接造一份假状态来预览
+   （`TaskComposeActivity.kt` 末尾有两个预览：有数据的样子、加载失败的样子，不用跑 App 就能看）。
+
+---
+
+## 五、核心代码长什么样
 
 `BaseViewModel` 一共就四样东西，很好记：
 
@@ -186,14 +249,44 @@ setContent {
     MaterialTheme {
         val state by viewModel.observeState()      // 状态变了自动重画
         viewModel.observeEffect { effect -> ... }  // 处理一次性事件
-        // 下面正常写你的 Composable
+
+        // 界面只接"当前状态"和"往哪儿上报操作"，自己不碰 ViewModel
+        YourScreen(
+            state = state,
+            onIntent = viewModel::setIntent,
+        )
     }
+}
+
+@Composable
+private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent) -> Unit) {
+    // 给同样的 state，画出来的一定是同样的界面
+    Button(onClick = { onIntent(YourContract.Intent.Xxx) }) { Text("点我") }
 }
 ```
 
+这样拆的好处：想预览某个样子，直接造一份假状态丢进去就行，不用启动 App、也不用真连数据。
+
 ---
 
-## 五、依赖版本（全部是当前最新稳定版）
+## 六、单元测试
+
+13 个测试，全跑在电脑上，不用模拟器，一秒多就跑完：
+
+```bash
+./gradlew test
+```
+
+| 测试文件 | 个数 | 盯住什么 |
+|---|---:|---|
+| `BaseViewModelTest` | 5 | 基类本身的行为：初始状态能不能用子类构造参数、上报的操作会不会被收到、状态是不是"换一份新的"、一次性事件是不是取走就没、界面中途才开始订阅能不能立刻拿到当前值 |
+| `TaskViewModelTest` | 8 | 示例的数据流：进页面自动加载、加载中的中间状态、加载完成弹提示、连着三次加载第三次失败、失败后重试能恢复、勾选只动一条、清空只动已完成那几条、没有已完成时只弹提示不改数据 |
+
+仓库里那个"等 800 毫秒"在测试里是**虚拟时间**，不用真等；这也正是"逻辑都收在 ViewModel 里"的好处 —— 不用模拟器就能把每条分支都验一遍。
+
+---
+
+## 七、依赖版本（全部是当前最新稳定版）
 
 下面这些是 2026-09-11 从 Google Maven / Maven Central 上查到的**最新稳定版**（已经排除 alpha / beta / rc）：
 
@@ -209,18 +302,18 @@ setContent {
 | lifecycle（runtime / viewmodel / compose） | 2.11.0 | |
 | activity（ktx / compose） | 1.13.0 | |
 | Compose BOM | 2026.09.00 | 所有 Compose 库的版本由它统一决定 |
-| kotlinx-coroutines | 1.11.0 | 现在还没用到，加 Retrofit 时要用 |
-| junit / androidx.test / espresso | 4.13.2 / 1.3.0 / 3.7.0 | 测试用 |
+| kotlinx-coroutines（android / test） | 1.11.0 | test 那个是单元测试用的 |
+| junit | 4.13.2 | 单元测试框架 |
 
 改版本只改一个文件：`gradle/libs.versions.toml`。
 
 ---
 
-## 六、怎么编译和运行
+## 八、怎么编译和运行
 
 ```bash
-./gradlew :app:assembleDebug
-# 产物：app/build/outputs/apk/debug/app-debug.apk
+./gradlew test                    # 13 个单元测试，跑在电脑上，不用模拟器
+./gradlew :app:assembleDebug      # 产出：app/build/outputs/apk/debug/app-debug.apk
 
 # 装到设备上
 adb install -r app/build/outputs/apk/debug/app-debug.apk
@@ -236,7 +329,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ---
 
-## 七、下一步：加 Retrofit
+## 九、下一步：加 Retrofit
 
 现在的数据是 `TaskRepository` 里的假数据。加 Retrofit 时**只需要动这一层**：
 
@@ -249,7 +342,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ---
 
-## 八、你自己的组件往哪儿填
+## 十、你自己的组件往哪儿填
 
 | 你要加的东西 | 放哪儿 |
 |---|---|

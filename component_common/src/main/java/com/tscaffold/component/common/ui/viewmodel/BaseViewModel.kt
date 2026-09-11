@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -60,10 +59,19 @@ interface UiEffect
  */
 abstract class BaseViewModel<State : UiState, Intent : UiIntent, Effect : UiEffect> : ViewModel() {
 
-    private val _uiState: MutableStateFlow<State> = MutableStateFlow(initializeState())
+    /**
+     * 页面状态存在这里。
+     *
+     * 为什么用 `by lazy` 而不是直接 `MutableStateFlow(initializeState())`：
+     * 基类的初始化**早于**子类构造参数的赋值。如果在这行直接调 initializeState()，
+     * 子类里一旦写了依赖自己构造参数的初始状态（例如 `initializeState() = State(repo.title)`），
+     * 读到的就是还没赋值的默认值 —— 对象类型会直接空指针，数字类型会静默变成 0，非常难查。
+     * 改成 lazy 之后，initializeState() 会推迟到真正用到状态时才执行，那时子类早就构造完了。
+     */
+    private val mutableState: MutableStateFlow<State> by lazy { MutableStateFlow(initializeState()) }
 
     /** 页面状态：界面订阅它，拿到新值就把自己重画一遍。 */
-    val uiState: StateFlow<State> = _uiState.asStateFlow()
+    val uiState: StateFlow<State> get() = mutableState
 
     private val _uiIntent: MutableSharedFlow<Intent> = MutableSharedFlow()
 
@@ -94,7 +102,7 @@ abstract class BaseViewModel<State : UiState, Intent : UiIntent, Effect : UiEffe
      * 意思是"拿旧状态改一个字段，其余字段照旧，返回一份新的"。
      */
     protected fun setState(reduce: State.() -> State) {
-        _uiState.update(reduce)
+        mutableState.update(reduce)
     }
 
     /** 界面上报一个用户操作。 */

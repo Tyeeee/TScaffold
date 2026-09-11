@@ -48,7 +48,6 @@ class TaskViewModel(
         // 先告诉界面"我在加载"，并清掉上一次的错误信息
         setState {
             copy(
-                loading = true,
                 loadStatus = TaskContract.LoadStatus.Loading,
                 failMessage = null,
             )
@@ -60,7 +59,6 @@ class TaskViewModel(
 
                 setState {
                     copy(
-                        loading = false,
                         tasks = tasks,
                         loadStatus = if (tasks.isEmpty()) {
                             TaskContract.LoadStatus.Empty
@@ -73,7 +71,6 @@ class TaskViewModel(
             } catch (e: Exception) {
                 setState {
                     copy(
-                        loading = false,
                         loadStatus = TaskContract.LoadStatus.Failed,
                         failMessage = e.message ?: "未知错误",
                     )
