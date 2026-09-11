@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-      component_common（MVI 核心）
+      core（MVI 核心）
       这里只有 MVI 基类和配套小工具，不需要声明权限、页面或服务，所以 application 是空的。
       以后要加通用控件、权限，直接往这里加。
     -->

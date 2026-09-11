@@ -48,8 +48,8 @@
 
 ```
 TScaffold
-├── app                       应用外壳：只有一个首页，放两个按钮进示例
-├── component_business_basic   ★ 你以后写页面的地方（现在是"任务列表"示例）
+├── app                       应用外壳：只有一个首页，三个按钮进示例
+├── component_business_basic   ★ 你以后写页面的地方（现在是四个示例页面）
 ├── component_common           ★ 这套写法的核心（全部家当都在这）
 └── component_basic            最底层，留给你放基础能力（现在几乎是空的）
 ```
@@ -60,6 +60,18 @@ TScaffold
 app  →  component_business_basic  →  component_common  →  component_basic
 （外壳）      （你的页面）            （核心写法）        （基础能力）
 ```
+
+> **模块名保持 `component_*`，改的是模块内部的包名。**
+> 模块名是 Gradle 的模块标识（`component_common`），包名是代码里的
+> `package` / `android.namespace`。模块名不动，包名把多余的 `component` 去掉：
+>
+> | 模块（Gradle） | 包名（namespace / package） |
+> |---|---|
+> | `component_common` | `com.tscaffold.core` |
+> | `component_basic` | `com.tscaffold.base` |
+> | `component_business_basic` | `com.tscaffold.feature` |
+>
+> 资源前缀、布局名、主题名这些是从**模块名**派生的，一律保持原样（`business_basic_*`）。
 
 ### component_common（核心，一共 6 个文件）
 
@@ -114,7 +126,7 @@ app  →  component_business_basic  →  component_common  →  component_basic
 
 | 文件 | 作用 |
 |---|---|
-| `MainActivity.kt` | 首页，两个按钮进示例 |
+| `MainActivity.kt` | 首页，三个按钮进示例 |
 | `App.kt` | 应用启动入口，这里打开了上面那个调试日志（不想要就删掉那两行） |
 | `ui/theme/*` | Compose 主题 |
 
@@ -413,14 +425,15 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 
 ---
 
-## 七、依赖版本（全部是当前最新稳定版）
+## 七、依赖版本
 
-下面这些是 2026-09-11 从 Google Maven / Maven Central 上查到的**最新稳定版**（已经排除 alpha / beta / rc）：
+下面这些是 2026-09-11 从 Google Maven / Maven Central 上查到的**最新稳定版**（已经排除 alpha / beta / rc）。
+**只有 Gradle 和 AGP 两行是例外**：它们固定在本机 Android Studio 支持的版本上，不是最新的，原因见本节末尾。
 
 | 东西 | 版本 | 说明 |
 |---|---|---|
-| Gradle | 9.7.1 | 构建工具本体 |
-| AGP（Android Gradle 插件） | 9.4.0 | |
+| Gradle | 9.5.0 | **跟 AGP 9.3.2 配套**，不要升 9.7.1，理由见下面那条说明 |
+| AGP（Android Gradle 插件） | 9.3.2 | **故意不升 9.4.0**，理由见下面那条说明 |
 | Kotlin | 2.4.20 | 顺带决定 Compose 编译器插件版本 |
 | compileSdk / targetSdk | 37 | minSdk 24 |
 | core-ktx | 1.19.0 | |
@@ -435,6 +448,45 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 | junit | 4.13.2 | 单元测试框架 |
 
 改版本只改一个文件：`gradle/libs.versions.toml`。
+
+> **为什么 AGP 停在 9.3.2，而不是 9.4.0**
+>
+> 9.4.0 是有效的正式版本（Google Maven 上有，命令行 `./gradlew` 用 9.4.0 也能构建成功）。
+> 卡住的是**本机的 Android Studio 2026.1.3**：它的
+> `Contents/plugins/android/lib/libagp-version.jar` 里写着
+> `lastStableBuildVersion = 9.3.0`，而它的兼容性判断
+> （`android-gradle.jar` 的 `AndroidGradlePluginCompatibilityKt`）先**只比 major.minor**，
+> 相同就放行，不同而且工程版本更大就判 `AFTER_MAXIMUM`，弹出
+> "incompatible version (AGP 9.4.0) / Latest supported version is AGP 9.3.0" 并拒绝同步。
+>
+> 所以 9.3.x 一整条线（含 9.3.1 / 9.3.2）都能过，9.4.0 过不了。
+> **等 Android Studio 升到认识 AGP 9.4 的版本后**，把 `libs.versions.toml` 里的
+> `agp = "9.3.2"` 改回 `"9.4.0"` 即可，别的地方一行都不用动。
+
+> **为什么 Gradle 也停在 9.5.0，而不是 9.7.1**
+>
+> 也是 Android Studio 定的。它的
+> `Contents/plugins/android/lib/build-common.jar` 里有张表
+> `CompatibleGradleVersion.AGP_MAJOR_MINOR_TO_GRADLE_MAP`：
+>
+> | AGP | Studio 认为该用的 Gradle |
+> |---|---|
+> | 9.0 | 9.1.0 |
+> | 9.1 | 9.3.1 |
+> | 9.2 | 9.4.1 |
+> | **9.3** | **9.5.0** |
+> | 9.4 | 9.6.0 |
+>
+> 所以只要 AGP 是 9.3.x，Studio 就认为工程该用 Gradle 9.5.0，并去
+> `services.gradle.org` 下载它 —— 本机连不上，于是报
+> `SocketTimeoutException: Read timed out`。
+> `gradle/wrapper/gradle-wrapper.properties` 现在指向 9.5.0，
+> 而这一份本机早就装好了（`~/.gradle/wrapper/dists/gradle-9.5.0-bin`），
+> 所以离线也能直接用，不会再触发下载。
+>
+> 顺带一提：`gradle-wrapper.properties` 里的 `distributionSha256Sum` 必须和
+> `distributionUrl` 的版本对上，否则下次真去下载时校验会失败。
+> AGP 和 Gradle 这两处要一起改回去（AGP 9.4.0 ↔ Gradle 9.6.0 才是配套的）。
 
 ---
 
@@ -454,6 +506,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 > 换到网络正常的机器上，把 `google()` 和 `mavenCentral()` 加回列表即可。
 > 另外 Gradle 发行包从官方地址下载极慢，本机是用腾讯镜像（`mirrors.cloud.tencent.com/gradle/`）下好放进
 > `~/.gradle/wrapper/dists/` 的（校验和与官方一致）。网络正常的话直接 `./gradlew` 即可自动下载。
+> 工程用的 Gradle **9.5.0** 本机已经装好，所以现在完全离线也能构建；换成没装过的版本时才会去下载。
 > `gradle.properties` 里登记了本地 JDK 路径并关闭了工具链自动下载，换机器可能要改。
 
 ---
@@ -517,4 +570,4 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 7. 删除这种不可逆的确认框，记得 `setCanceledOnTouchOutside(false)`，手指滑到框外不该把框关掉。
 8. 打调试日志时注意两条：别打敏感数据（token、手机号）；正式包里别一直开着。
 9. 示例里的列表用的是 RecyclerView + DiffUtil（状态变了只重画变化的行）；条数少、图省事的场景也可以直接铺 View。
-10. 名字都统一成 TScaffold 了：`rootProject.name`、`app` 的 `applicationId` 与 `namespace`、各模块 `namespace`、包名 `com.tscaffold`、应用显示名 `app_name`、Compose 主题 `TScaffoldTheme`、XML 主题 `Theme.TScaffold`。以后换正式名字，按这几处一次替掉即可。
+10. 名字都统一成 TScaffold 了：`rootProject.name`、`app` 的 `applicationId` 与 `namespace`、各模块 `namespace`、包名 `com.tscaffold`、应用显示名 `app_name`、Compose 主题 `TScaffoldTheme`、XML 主题 `Theme.TScaffold`。模块名仍是 `component_basic` / `component_common` / `component_business_basic`（没动），包名是 `com.tscaffold.base` / `.core` / `.feature`（对照表见 §二），`component_business_basic` 的资源前缀是 `business_basic_`。以后换正式名字，按这几处一次替掉即可。

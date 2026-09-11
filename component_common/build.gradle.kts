@@ -1,5 +1,5 @@
 // component_common —— MVI 核心（只有 MVI 相关的东西）
-// 内容：BaseViewModel（State / Intent / Effect 三件套）、BaseContract（页面约定模板）、
+// 内容：BaseViewModel（State / Intent 两件套）、BaseContract（页面约定模板）、
 //      BaseActivity / BaseFragment（XML 页面基类）、compose/MviCompose.kt（Compose 页面小工具）
 plugins {
     alias(libs.plugins.android.library)
@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.tscaffold.component.common"
+    namespace = "com.tscaffold.core"
 
     compileSdk {
         version = release(37)
@@ -40,7 +40,7 @@ dependencies {
     api(libs.androidx.lifecycle.runtime.ktx)
     api(libs.androidx.lifecycle.viewmodel.ktx)
 
-    // Compose 版小工具：observeState() / observeEffect()
+    // Compose 版小工具：observeState()
     api(libs.androidx.lifecycle.runtime.compose)
     api(platform(libs.androidx.compose.bom))
     api(libs.androidx.compose.runtime)

@@ -1,13 +1,13 @@
-// component_business_basic —— 示例业务层
-// 里面是"任务列表"这一个示例的两种写法（XML 版 + Compose 版），共用同一个 TaskViewModel。
-// 你写自己的页面时，照抄这个结构即可。
+// component_business_basic —— 你的页面写在这里
+// 现在是四个形态各异的示例页面（列表分页 / 输入表单 / Compose 搜索 / 带参数详情），
+// 共用同一套写法（Contract + ViewModel + 界面）和同一份假数据源；写自己的页面时挑最像的照抄。
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
 }
 
 android {
-    namespace = "com.tscaffold.component.business.basic"
+    namespace = "com.tscaffold.feature"
     // 资源名统一加前缀，避免以后多个模块重名打架
     resourcePrefix = "business_basic_"
 
@@ -21,7 +21,7 @@ android {
     }
 
     buildFeatures {
-        // XML 页面要用 ViewBinding 直接取控件：viewBinding.tvCount
+        // XML 页面要用 ViewBinding 直接取控件：viewBinding.tvListTitle
         viewBinding = true
         compose = true
     }

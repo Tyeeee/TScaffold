@@ -15,24 +15,24 @@
     <application>
 
         <activity
-            android:name="com.tscaffold.component.business.basic.ui.list.view.ListActivity"
+            android:name="com.tscaffold.feature.ui.list.view.ListActivity"
             android:exported="false"
             android:theme="@style/business_basic_theme" />
 
         <activity
-            android:name="com.tscaffold.component.business.basic.ui.login.view.LoginActivity"
+            android:name="com.tscaffold.feature.ui.login.view.LoginActivity"
             android:exported="false"
             android:theme="@style/business_basic_theme"
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name="com.tscaffold.component.business.basic.ui.search.compose.SearchActivity"
+            android:name="com.tscaffold.feature.ui.search.compose.SearchActivity"
             android:exported="false"
             android:theme="@style/business_basic_theme"
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name="com.tscaffold.component.business.basic.ui.detail.compose.DetailActivity"
+            android:name="com.tscaffold.feature.ui.detail.compose.DetailActivity"
             android:exported="false"
             android:theme="@style/business_basic_theme" />
 
