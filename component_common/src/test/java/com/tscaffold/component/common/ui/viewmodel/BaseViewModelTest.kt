@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -120,5 +121,37 @@ class BaseViewModelTest {
 
         // 界面中途才开始订阅（比如转屏后重建），照样能立刻拿到最新状态
         assertEquals(4, viewModel.uiState.first().count)
+    }
+
+    @Test
+    fun `连着上报同一个操作两次，两次都会被处理`() = runTest(dispatcher) {
+        val viewModel = TestViewModel(startCount = 0)
+
+        // 界面上连点两下同一个按钮，上报的是同一个操作对象。
+        // 这条必须成立：如果哪天把"操作"改成用 StateFlow 存，它会自带"相同值不重复发射"，
+        // 第二次点击就会被悄悄吞掉，界面看起来像卡了一下。
+        viewModel.setIntent(TestIntent.Add)
+        viewModel.setIntent(TestIntent.Add)
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.uiState.value.count)
+    }
+
+    @Test
+    fun `打开调试日志后，能打出收到的操作和状态变化`() = runTest(dispatcher) {
+        val lines = mutableListOf<String>()
+        MviLog.printer = { lines += it }
+        try {
+            val viewModel = TestViewModel(startCount = 0)
+            viewModel.setIntent(TestIntent.Add)
+            advanceUntilIdle()
+        } finally {
+            MviLog.printer = {}      // 用完关掉，免得影响别的测试
+        }
+
+        assertTrue("应该打出收到的操作：$lines", lines.any { it.contains("收到操作") && it.contains("Add") })
+        assertTrue("应该打出状态变化：$lines", lines.any { it.contains("状态") && it.contains("count=1") })
+        // 名字必须是这个页面自己的类名，不能是协程之类的名字（踩过一次）
+        assertTrue("日志里应该是页面的名字：$lines", lines.all { it.contains("TestViewModel") })
     }
 }

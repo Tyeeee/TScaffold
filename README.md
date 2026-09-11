@@ -61,11 +61,12 @@ app  →  component_business_basic  →  component_common  →  component_basic
 （外壳）      （你的页面）            （核心写法）        （基础能力）
 ```
 
-### component_common（核心，一共 5 个文件）
+### component_common（核心，一共 6 个文件）
 
 | 文件 | 作用 |
 |---|---|
 | `ui/viewmodel/BaseViewModel.kt` | 状态和操作的定义 + 所有 ViewModel 的父类。**想弄懂这套写法，看这一个文件就够** |
+| `ui/viewmodel/MviLog.kt` | 调试开关：打开后每个操作、每次状态变化都打到 Logcat（默认关） |
 | `ui/contract/BaseContract.kt` | 一个页面约定的空白模板，照抄着改成自己的 |
 | `ui/activity/BaseActivity.kt` | 用 XML 写页面时的 Activity 父类，帮你加载布局、按顺序调用你的代码 |
 | `ui/fragment/BaseFragment.kt` | 同上，Fragment 版 |
@@ -95,11 +96,19 @@ app  →  component_business_basic  →  component_common  →  component_basic
 | `component_common/src/test/.../BaseViewModelTest.kt` | 盯住基类本身的行为（5 个用例） |
 | `component_business_basic/src/test/.../TaskViewModelTest.kt` | 盯住示例的数据流（8 个用例） |
 
+### app（应用外壳）
+
+| 文件 | 作用 |
+|---|---|
+| `MainActivity.kt` | 首页，两个按钮进示例 |
+| `App.kt` | 应用启动入口，这里打开了上面那个调试日志（不想要就删掉那两行） |
+| `ui/theme/*` | Compose 主题 |
+
 ### component_basic
 
 | 文件 | 作用 |
 |---|---|
-| `BasicApplication.kt` | 应用启动入口，现在是空的，专门留给你做初始化 |
+| `BasicApplication.kt` | 留给"基础能力初始化"的位置（网络、存储、日志库的初始化都写这儿） |
 | `extensions/ViewModel.kt` | 想让多个页面共用同一份数据时用（App 级 ViewModel） |
 
 ---
@@ -197,6 +206,50 @@ app  →  component_business_basic  →  component_common  →  component_basic
 - **顺带撤掉一个说法**：上一版我说"我们简化了 reducer，和官方定义有差别"。
   官方文档**从头到尾没有要求"纯函数 reducer"**，只要求"状态是被 ViewModel 转换过的应用数据"。
   所以 `setState { copy(...) }` 完全符合官方要求，不用当成缺陷。
+
+### 另一份 MVI 资料怎么说（本工程逐条对照）
+
+除了官网，还照着一份 MVI 的资料对了一遍。它把 MVI 拆成三块（Intent / Model / View），
+并分别给了 Kotlin Flow、Rx、LiveData 三种实现方式。它的说法和官网不冲突，
+但点出了几个容易忽略的地方，逐条对照如下：
+
+| 资料里的说法 | 本工程 |
+|---|---|
+| **Model** 用 ViewModel：处理进来的请求、算状态、**转屏和进程被回收后状态仍在**、发出不可变状态 | ⚠️ 转屏没问题；**进程被杀后没保存**，见下面"还差一条" |
+| **View** 用 Activity/Fragment：显示状态；发起事件（用户点的按钮，以及系统给的，比如页面加载、旋屏） | ✅ 一致 |
+| **Intent** 用"视图接口"：定义输入事件 + render 方法 | ⚠️ 职责一样，形状不同：我们用 `setIntent(...)`，界面里各自 `render(state)`；Compose 那边是"界面只接 `state` 和 `onIntent`"。建一个接口是更早的写法，现在官方更推荐把事件当参数往下传 |
+| 一次性事件（导航 / 错误 / Snackbar / Toast）：**先置为"开"，用完置回"关"** | ✅ 就是现在的 `message` + `MessageShown`。原文举的例子是 Snackbar 用 `LENGTH_INDEFINITE`，弹完再发一个"关掉"的状态 |
+| Intent **不要用 StateFlow 存**：它自带"相同值不重复发射"，连续两次同样的操作会被悄悄吞掉 | ✅ 我们用的是 SharedFlow，并且**补了测试钉死**：连点两下同一个按钮，两次都必须被处理 |
+| 状态值完全相同时不会重复发射，所以"同样内容但要再弹一次"要特殊处理 | ✅ 我们的提示显示完立刻清空，状态必然发生变化，不会出现"第二次弹不出来" |
+| LCE / Resource：loading、success、error | ✅ 用 `LoadStatus` 枚举 + 数据字段表达（等价变体） |
+| **Improve debugging with logs**：打印收到的操作、每次状态变化；别打敏感数据；正式包别一直开着 | ✅ **这次补上了**：`MviLog` + 在 `App.kt` 里打开，Logcat 过滤 `MVI` 就是完整链路 |
+| 单元测试盯住"给定操作之后状态对不对"，少写仪器测试 | ✅ 15 个 ViewModel 单元测试；顺手删掉了模板生成的两个示例测试 |
+| RenderModel：**只渲染变化的部分** | ⚠️ 示例用的是"清空重建"图好读；条数多了要换成 RecyclerView，见文末注意点 |
+
+#### 还差一条：进程被系统杀掉之后
+
+- **转屏**：没问题，ViewModel 自己就活过了转屏，状态不用重新算。
+- **进程被杀**（后台待久了被系统回收）：**没做**。现在回到页面会重新加载一遍。
+  示例没做的原因是：假数据源每次都能重新拉，没什么可惜的。
+- 真项目里值得存的是"用户改了、但还没提交的东西"：输入框草稿、勾选到哪儿了、翻到第几页。
+  官方给的工具是 `SavedStateHandle`，大概长这样（**这段是示意，没在示例里跑过**）：
+
+```kotlin
+class YourViewModel(
+    private val savedState: SavedStateHandle,
+    private val repository: YourRepository,
+) : BaseViewModel<YourState, YourIntent>() {
+
+    override fun initializeState() = YourState(
+        keyword = savedState["keyword"] ?: "",     // 进程被杀后重建，草稿还在
+    )
+}
+
+// 页面里就不能再偷懒用默认工厂了，要自己给一个：
+override val viewModel: YourViewModel by viewModels {
+    viewModelFactory { initializer { YourViewModel(createSavedStateHandle(), YourRepository()) } }
+}
+```
 
 ---
 
@@ -313,7 +366,7 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 
 ## 六、单元测试
 
-13 个测试，全跑在电脑上，不用模拟器，一秒多就跑完：
+15 个测试，全跑在电脑上，不用模拟器，一秒多就跑完：
 
 ```bash
 ./gradlew test
@@ -321,11 +374,15 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 
 | 测试文件 | 个数 | 盯住什么 |
 |---|---:|---|
-| `BaseViewModelTest` | 5 | 基类本身的行为：初始状态能不能用子类构造参数、上报的操作会不会被收到、状态是不是"换一份新的"、状态里那句提示回报之后会不会被清掉、界面中途才开始订阅能不能立刻拿到当前值 |
+| `BaseViewModelTest` | 7 | 基类本身的行为：初始状态能不能用子类构造参数、上报的操作会不会被收到、**连点两下同一个操作会不会被吞掉**、状态是不是"换一份新的"、提示回报之后会不会被清掉、界面中途才订阅能不能立刻拿到当前值、**打开调试日志后能不能打出操作和状态** |
 | `TaskViewModelTest` | 8 | 示例的数据流：进页面自动加载、加载中的中间状态、加载完成留下提示、连着三次加载第三次失败、失败后重试能恢复、勾选只动一条、清空只动已完成那几条、没有已完成时只多一句提示不改数据 |
 
 仓库里那个"等 800 毫秒"在测试里是**虚拟时间**，不用真等；这也正是"逻辑都收在 ViewModel 里"的好处 ——
 不用模拟器就能把每条分支都验一遍。
+
+> 那两个加粗的用例是照着一份 MVI 资料的提醒补的：
+> "操作"如果用 StateFlow 存，它自带的"相同值不重复发射"会把连续两次同样的点击吃掉，
+> 界面上看起来就像卡了一下。我们用的是 SharedFlow 没这个问题，但补个测试钉死，以后改坏了会立刻发现。
 
 ---
 
@@ -355,7 +412,7 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 ## 八、怎么编译和运行
 
 ```bash
-./gradlew test                    # 13 个单元测试，跑在电脑上，不用模拟器
+./gradlew test                    # 15 个单元测试，跑在电脑上，不用模拟器
 ./gradlew :app:assembleDebug      # 产出：app/build/outputs/apk/debug/app-debug.apk
 
 # 装到设备上
@@ -395,8 +452,17 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 | 新页面（状态 / 操作 / 界面） | `component_business_basic`，照抄 `ui/task` 的结构 |
 | 通用 UI 控件（弹窗、进度条、自定义 View……） | `component_common`，新建 `ui/widget` 目录 |
 | 网络、本地存储、日志、工具类 | `component_basic` |
-| 应用启动时要做的初始化 | `component_basic` 的 `BasicApplication.onCreate()` |
+| 应用启动时要做的初始化 | `component_basic` 的 `BasicApplication.onCreate()`（本 App 自己的初始化写在 `app` 的 `App.kt`） |
 | 新增第三方库 | 只改 `gradle/libs.versions.toml`，然后在对应模块 `build.gradle.kts` 里引用 |
+
+**调试小技巧**：页面行为不对时，先看 Logcat（过滤 `MVI`）。
+每个操作、每次状态变化都会打出来，一眼能看出是"操作没上报"还是"状态算错了"，
+例如：
+
+```
+【TaskViewModel】收到操作: Refresh
+【TaskViewModel】状态: State(tasks=[...], loadStatus=Loading, ...) -> State(tasks=[...], loadStatus=Success, ...)
+```
 
 **几个注意点**
 
@@ -405,4 +471,5 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 3. 界面里不要写业务判断，全部塞进 `handleIntent`；要提示的话写进状态，不要自己造一条"发事件"的通道。
 4. 能从别的字段算出来的，别再在状态里存一份（示例里 `loading`、`total`、`doneCount` 都是现算的）。
 5. 示例里的列表是"清空重建"的写法，为的是让人一眼看懂；条数多了要换成 RecyclerView（那属于你自己要做的组件）。
-6. 名字都统一成 TScaffold 了：`rootProject.name`、`app` 的 `applicationId` 与 `namespace`、各模块 `namespace`、包名 `com.tscaffold`、应用显示名 `app_name`、Compose 主题 `TScaffoldTheme`、XML 主题 `Theme.TScaffold`。以后换正式名字，按这几处一次替掉即可。
+6. 打调试日志时注意两条：别打敏感数据（token、手机号）；正式包里别一直开着。
+7. 名字都统一成 TScaffold 了：`rootProject.name`、`app` 的 `applicationId` 与 `namespace`、各模块 `namespace`、包名 `com.tscaffold`、应用显示名 `app_name`、Compose 主题 `TScaffoldTheme`、XML 主题 `Theme.TScaffold`。以后换正式名字，按这几处一次替掉即可。

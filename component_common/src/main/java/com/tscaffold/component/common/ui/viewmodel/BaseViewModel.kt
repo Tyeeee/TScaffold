@@ -78,6 +78,14 @@ abstract class BaseViewModel<State : UiState, Intent : UiIntent> : ViewModel() {
     /** 用户操作流：界面不用管它，基类内部会自己收。 */
     private val uiIntent = MutableSharedFlow<Intent>()
 
+    /**
+     * 打日志时用的名字，取子类的类名，一眼能看出是哪个页面。
+     *
+     * 写成 getter 而不是属性：直接在协程的 lambda 里写 `javaClass` 会取到协程对象
+     * （打出来是 StandaloneCoroutine 这种名字，不是页面的名字），必须显式取本类的运行时类型。
+     */
+    private val logName: String get() = javaClass.simpleName
+
     /** 这一页刚打开时的初始状态。 */
     protected abstract fun initializeState(): State
 
@@ -87,7 +95,11 @@ abstract class BaseViewModel<State : UiState, Intent : UiIntent> : ViewModel() {
     init {
         // 把"用户操作"这条线接通：收到一个操作就交给 handleIntent 处理。
         viewModelScope.launch {
-            uiIntent.collect { handleIntent(it) }
+            uiIntent.collect { intent ->
+                // 调试用：把收到的每个操作打出来（没打开日志就什么都不做）
+                MviLog.print { "【$logName】收到操作: $intent" }
+                handleIntent(intent)
+            }
         }
     }
 
@@ -97,7 +109,13 @@ abstract class BaseViewModel<State : UiState, Intent : UiIntent> : ViewModel() {
      * 意思是"拿旧状态改一个字段，其余字段照旧，返回一份新的"。
      */
     protected fun setState(reduce: State.() -> State) {
+        val before = mutableState.value
         mutableState.update(reduce)
+        val after = mutableState.value
+        if (before != after) {
+            // 调试用：把每次状态变化打出来，一眼能看出是哪一步把状态改成这样的
+            MviLog.print { "【$logName】状态: $before -> $after" }
+        }
     }
 
     /** 界面上报一个用户操作。 */
