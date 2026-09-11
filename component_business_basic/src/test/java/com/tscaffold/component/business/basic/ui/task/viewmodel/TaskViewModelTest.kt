@@ -4,7 +4,6 @@ import com.tscaffold.component.business.basic.ui.task.contract.TaskContract
 import com.tscaffold.component.business.basic.ui.task.data.TaskRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -44,6 +43,11 @@ class TaskViewModelTest {
 
     private fun newViewModel() = TaskViewModel(TaskRepository())
 
+    /** 模拟界面：看到状态里有提示就"弹"掉，然后回报一句 —— 和真界面的做法一致。 */
+    private fun TaskViewModel.consumeMessage() {
+        setIntent(TaskContract.Intent.MessageShown)
+    }
+
     @Test
     fun `一进页面就自动加载，加载完是有数据的成功状态`() = runTest(dispatcher) {
         val viewModel = newViewModel()
@@ -73,14 +77,19 @@ class TaskViewModelTest {
     }
 
     @Test
-    fun `加载完成后会弹一次提示，而且只弹一次`() = runTest(dispatcher) {
+    fun `加载完成后状态里带着一句提示，界面回报之后就被清掉`() = runTest(dispatcher) {
         val viewModel = newViewModel()
         advanceUntilIdle()
 
-        val effect = viewModel.uiEffect.first()
+        // ① 状态里有话要提示
+        val message = viewModel.uiState.value.message
+        assertNotNull(message)
+        assertTrue(message!!.startsWith("加载完成"))
 
-        assertTrue(effect is TaskContract.Effect.ShowToast)
-        assertTrue((effect as TaskContract.Effect.ShowToast).message.startsWith("加载完成"))
+        // ② 界面弹完，回报一句，状态清干净
+        viewModel.consumeMessage()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.message)
     }
 
     @Test
@@ -96,7 +105,8 @@ class TaskViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals(TaskContract.LoadStatus.Failed, state.loadStatus)
-        assertNotNull(state.failMessage)
+        assertNotNull(state.failMessage)        // 错误原因会一直显示在页面上
+        assertNotNull(state.message)            // 同时还有一句要提示的话
         assertFalse(state.loading)
         // 失败时不要把已经拿到的数据清空，界面还能接着显示旧列表
         assertTrue(state.tasks.isNotEmpty())
@@ -140,36 +150,35 @@ class TaskViewModelTest {
     }
 
     @Test
-    fun `清掉已完成会移除这些条目，并弹一次提示`() = runTest(dispatcher) {
+    fun `清掉已完成会移除这些条目，状态里带着一句提示`() = runTest(dispatcher) {
         val viewModel = newViewModel()
         advanceUntilIdle()
-        viewModel.uiEffect.first()                       // 先把"加载完成"那条提示取走
         val doneCount = viewModel.uiState.value.doneCount
         assertTrue(doneCount > 0)
 
         viewModel.setIntent(TaskContract.Intent.ClearDone)
         advanceUntilIdle()
 
-        assertEquals(0, viewModel.uiState.value.doneCount)
-        val effect = viewModel.uiEffect.first()
-        assertTrue((effect as TaskContract.Effect.ShowToast).message.contains("清掉"))
+        val state = viewModel.uiState.value
+        assertEquals(0, state.doneCount)
+        assertTrue(state.message!!.contains("清掉"))
     }
 
     @Test
-    fun `没有已完成的任务时，只弹提示，数据一个字都不改`() = runTest(dispatcher) {
+    fun `没有已完成的任务时，只多出一句提示，数据一个字都不改`() = runTest(dispatcher) {
         val viewModel = newViewModel()
         advanceUntilIdle()
-        viewModel.uiEffect.first()                       // 取走"加载完成"
         viewModel.setIntent(TaskContract.Intent.ClearDone)
         advanceUntilIdle()
-        viewModel.uiEffect.first()                       // 取走"清掉了 x 条"
+        viewModel.consumeMessage()                       // 界面把"清掉了 x 条"弹掉
+        advanceUntilIdle()
         val tasksNow = viewModel.uiState.value.tasks
 
         viewModel.setIntent(TaskContract.Intent.ClearDone)
         advanceUntilIdle()
 
-        assertEquals(tasksNow, viewModel.uiState.value.tasks)
-        val effect = viewModel.uiEffect.first()
-        assertTrue((effect as TaskContract.Effect.ShowToast).message.contains("还没有"))
+        val state = viewModel.uiState.value
+        assertEquals(tasksNow, state.tasks)              // 数据没变
+        assertTrue(state.message!!.contains("还没有"))    // 只是多了一句提示
     }
 }

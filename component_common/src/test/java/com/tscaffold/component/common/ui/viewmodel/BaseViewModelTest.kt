@@ -8,7 +8,6 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -37,15 +36,16 @@ class BaseViewModelTest {
 
     // ==================== 一个专门用来测基类的最小页面 ====================
 
-    private data class TestState(val count: Int = 0) : UiState
+    private data class TestState(
+        val count: Int = 0,
+        /** 要弹给用户看的一句话。按官方做法，这类内容也放在状态里。 */
+        val message: String? = null,
+    ) : UiState
 
     private sealed interface TestIntent : UiIntent {
         data object Add : TestIntent
         data object Notify : TestIntent
-    }
-
-    private sealed interface TestEffect : UiEffect {
-        data class Toast(val text: String) : TestEffect
+        data object MessageShown : TestIntent
     }
 
     /**
@@ -53,14 +53,15 @@ class BaseViewModelTest {
      * 这是使用者最容易写出来的代码，也是基类的构造顺序最容易踩的坑。
      */
     private class TestViewModel(private val startCount: Int) :
-        BaseViewModel<TestState, TestIntent, TestEffect>() {
+        BaseViewModel<TestState, TestIntent>() {
 
         override fun initializeState(): TestState = TestState(count = startCount)
 
         override fun handleIntent(intent: TestIntent) {
             when (intent) {
                 TestIntent.Add -> setState { copy(count = count + 1) }
-                TestIntent.Notify -> setEffect { TestEffect.Toast("收到") }
+                TestIntent.Notify -> setState { copy(message = "收到") }
+                TestIntent.MessageShown -> setState { copy(message = null) }
             }
         }
     }
@@ -97,15 +98,18 @@ class BaseViewModelTest {
     }
 
     @Test
-    fun `一次性事件取走一次就没了，不会重复`() = runTest(dispatcher) {
+    fun `要弹一次的话放进状态里，界面回报一句就清掉了`() = runTest(dispatcher) {
         val viewModel = TestViewModel(startCount = 0)
 
+        // ① ViewModel 把"要提示的话"写进状态，界面会看到它
         viewModel.setIntent(TestIntent.Notify)
         advanceUntilIdle()
+        assertEquals("收到", viewModel.uiState.value.message)
 
-        assertEquals(TestEffect.Toast("收到"), viewModel.uiEffect.first())
-        // 再想取一次就取不到了 —— 这正是"弹一次提示只弹一次"的保证
-        assertNull(withTimeoutOrNull(100) { viewModel.uiEffect.first() })
+        // ② 界面弹完提示，回报一句，状态回到"屏幕上没有这句话"
+        viewModel.setIntent(TestIntent.MessageShown)
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.message)
     }
 
     @Test

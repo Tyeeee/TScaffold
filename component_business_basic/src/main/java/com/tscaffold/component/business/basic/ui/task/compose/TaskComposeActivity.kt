@@ -31,10 +31,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.tscaffold.component.business.basic.ui.task.contract.TaskContract
 import com.tscaffold.component.business.basic.ui.task.data.Task
 import com.tscaffold.component.business.basic.ui.task.viewmodel.TaskViewModel
-import com.tscaffold.component.common.ui.compose.observeEffect
 import com.tscaffold.component.common.ui.compose.observeState
 
 /**
@@ -43,11 +43,14 @@ import com.tscaffold.component.common.ui.compose.observeState
  * 和 XML 版用的是**同一个** [TaskViewModel]、同一份[TaskContract]，
  * ViewModel 里一行代码都不用改 —— 换界面写法不影响逻辑，这就是这套写法的意义。
  *
- * 注意这里的分工（和 MVI 的要求一致）：
- * - 这个 Activity 负责"接线"：订阅状态、处理一次性事件、把用户的动作转给 ViewModel；
+ * 注意这里的分工：
+ * - 这个 Activity 负责"接线"：订阅状态、把状态里那句提示弹出来、把用户的动作转给 ViewModel；
  * - 下面的 [TaskScreen] 只接收"当前状态"和"上报操作的口子"，自己不碰 ViewModel。
  *   所以它是**状态的函数**：给同样的状态，画出来的一定是同样的界面。
  *   好处很直接 —— 想预览某个样子，直接造一个假状态丢进去就行（见文件末尾的预览）。
+ *
+ * 弹提示用的是官方推荐的 `LifecycleResumeEffect`：只在页面可见时执行，
+ * 弹完回报 [TaskContract.Intent.MessageShown] 让 ViewModel 把状态清干净。
  */
 class TaskComposeActivity : ComponentActivity() {
 
@@ -61,12 +64,14 @@ class TaskComposeActivity : ComponentActivity() {
                     val state by viewModel.observeState()
                     val context = LocalContext.current
 
-                    // 一次性事件：页面可见时才收，退到后台不会突然弹提示
-                    viewModel.observeEffect { effect ->
-                        when (effect) {
-                            is TaskContract.Effect.ShowToast ->
-                                Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
+                    // 状态里出现了"要弹一次"的话，就在这里弹掉，然后回报一句把它清掉
+                    LifecycleResumeEffect(state.message) {
+                        val message = state.message
+                        if (message != null) {
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            viewModel.setIntent(TaskContract.Intent.MessageShown)
                         }
+                        onPauseOrDispose { }
                     }
 
                     TaskScreen(

@@ -26,9 +26,9 @@ import kotlinx.coroutines.launch
  * Activity 用 `by viewModels()` 建出来，Fragment 用 `by activityViewModels()` 拿它那一份。
  * 所以顶部统计和下面的列表永远是同一份数据，不会各显示各的。
  *
- * 还有一条约定：**一次性事件（弹提示）只在 Activity 这一层处理**。
- * 如果 Activity 和 Fragment 都去收 uiEffect，一条提示会被两边抢着消费，出现"有时候弹有时候不弹"的怪现象。
- * 记住：状态可以多处订阅，事件只在一处处理。
+ * 关于"弹提示"：按官方文档的做法，ViewModel 不往界面发事件，而是把要说的那句话放进状态
+ * （`state.message`）。界面看到状态里有这句话就弹出来，弹完回报一个 [TaskContract.Intent.MessageShown]，
+ * ViewModel 收到把它清掉。所以**提示只在这一处处理**（Fragment 不碰），避免两边抢着弹。
  */
 class TaskActivity :
     BaseActivity<BusinessBasicActivityTaskBinding, TaskViewModel>(
@@ -36,6 +36,9 @@ class TaskActivity :
     ) {
 
     override val viewModel: TaskViewModel by viewModels()
+
+    /** 上一次已经弹过的那句话，用来避免同一条提示弹两次。 */
+    private var shownMessage: String? = null
 
     override fun initialize(savedInstanceState: Bundle?) {
         // 只在第一次创建时塞 Fragment，转屏后系统会自己恢复，别再塞一次
@@ -52,29 +55,33 @@ class TaskActivity :
     }
 
     override fun observe() {
+        // repeatOnLifecycle：页面可见时才接收，退到后台就自动停下来，不会白干活；
+        // 后台期间产生的提示也留在状态里，回到前台照样会弹出来，不会丢。
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                // 第一条线：状态变了，重画顶部统计
-                launch {
-                    viewModel.uiState.collect { state ->
-                        viewBinding.tvSummary.text = getString(
-                            R.string.business_basic_task_summary,
-                            state.doneCount,
-                            state.total,
-                        )
-                    }
-                }
-                // 第二条线：一次性事件，弹提示（只在这一处收）
-                launch {
-                    viewModel.uiEffect.collect { effect ->
-                        when (effect) {
-                            is TaskContract.Effect.ShowToast ->
-                                Toast.makeText(this@TaskActivity, effect.message, Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                viewModel.uiState.collect { state ->
+                    viewBinding.tvSummary.text = getString(
+                        R.string.business_basic_task_summary,
+                        state.doneCount,
+                        state.total,
+                    )
+                    showMessageOnce(state.message)
                 }
             }
         }
+    }
+
+    /** 状态里出现了"要弹一次"的话，就弹掉，并回报给 ViewModel 把状态清干净。 */
+    private fun showMessageOnce(message: String?) {
+        if (message == null) {
+            // 已经被清掉了，记一笔重置，下次出现同样的一句话还能再弹
+            shownMessage = null
+            return
+        }
+        if (message == shownMessage) return
+        shownMessage = message
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        viewModel.setIntent(TaskContract.Intent.MessageShown)
     }
 
     companion object {

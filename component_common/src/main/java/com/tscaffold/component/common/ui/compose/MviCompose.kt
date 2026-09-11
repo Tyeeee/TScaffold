@@ -1,50 +1,28 @@
 package com.tscaffold.component.common.ui.compose
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.flowWithLifecycle
 import com.tscaffold.component.common.ui.viewmodel.BaseViewModel
-import com.tscaffold.component.common.ui.viewmodel.UiEffect
 import com.tscaffold.component.common.ui.viewmodel.UiIntent
 import com.tscaffold.component.common.ui.viewmodel.UiState
 
 /**
- * 用 Compose 写页面时的两个小工具，和 XML 版的 BaseActivity.observe() 作用一样。
+ * 用 Compose 写页面时的一个小工具，和 XML 版的 `BaseActivity.observe()` 作用一样。
  *
  * 用法（示例见 component_business_basic 的 TaskComposeActivity）：
  *
  * ```
- * val state by viewModel.observeState()        // 拿到页面状态，状态一变界面自动重画
- * viewModel.observeEffect { effect -> ... }     // 处理弹提示、跳页面这类一次性事件
+ * val state by viewModel.observeState()   // 拿到页面状态，状态一变界面自动重画
  * ```
+ *
+ * 它内部用的是官方推荐的 `collectAsStateWithLifecycle()`：页面不可见时停止收集，
+ * 不会在后台白干活。
+ *
+ * 状态里要是有"弹一次提示"这类内容（比如 `state.message`），
+ * 界面显示完之后记得回报一句（例如 `setIntent(MessageShown)`），
+ * 让 ViewModel 把它清掉 —— 这样状态永远如实反映屏幕上显示的东西。
  */
-
-/** 订阅页面状态。状态变了，用到它的界面会自动重新画。 */
 @Composable
-fun <S : UiState, I : UiIntent, E : UiEffect> BaseViewModel<S, I, E>.observeState(): State<S> =
+fun <S : UiState, I : UiIntent> BaseViewModel<S, I>.observeState(): State<S> =
     uiState.collectAsStateWithLifecycle()
-
-/**
- * 订阅一次性事件。
- *
- * 这里只在页面"可见"的时候接收（页面被切到后台就不再收），
- * 避免用户看不见的时候突然弹提示、跳页面。
- *
- * @param key 换一个 key 就会重新开始接收，一般不用传。
- */
-@Composable
-fun <S : UiState, I : UiIntent, E : UiEffect> BaseViewModel<S, I, E>.observeEffect(
-    key: Any? = Unit,
-    onEffect: (E) -> Unit,
-) {
-    val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(key, lifecycleOwner) {
-        uiEffect
-            .flowWithLifecycle(lifecycleOwner.lifecycle, Lifecycle.State.STARTED)
-            .collect { onEffect(it) }
-    }
-}

@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
  *
  * 分工和 Activity 商量好了：
  * - 状态（列表、加载中、错误）→ 这里订阅并画出来；
- * - 事件（弹提示）→ 交给 Activity 处理，这里不碰。
+ * - 状态里的那句提示（`state.message`）→ 交给 Activity 弹，这里不碰，免得两边抢着弹。
  */
 class TaskFragment :
     BaseFragment<BusinessBasicFragmentTaskBinding, TaskViewModel>(

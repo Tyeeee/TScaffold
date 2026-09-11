@@ -2,41 +2,41 @@ package com.tscaffold.component.common.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * ============================ 这套写法怎么理解 ============================
+ * ====================== 这套写法怎么理解（对照安卓官方文档） ======================
  *
- * 一页界面被拆成三样东西，各走各的路，互不干扰：
+ * 官方文档里没有 "MVI" 这个说法，它讲的叫**单向数据流（UDF）**，原话是
+ * "The pattern where the state flows down and the events flow up is called a
+ * unidirectional data flow (UDF)"（状态往下流、事件往上走）。
+ * 出处：developer.android.com/topic/architecture/ui-layer
  *
- * 1. State（页面状态）—— "这一页现在长什么样"。
- *    比如计数器页面的状态就是"现在数字是几"。它永远有一个最新值，
- *    界面每次拿到新值就把自己重画一遍。用 StateFlow 承载。
+ * 官方对它的解释是四句话：
+ * 1. ViewModel 持有并对外暴露 UI 状态，界面订阅它；
+ * 2. 界面把用户的操作告诉 ViewModel；
+ * 3. ViewModel 处理这些操作，更新状态；
+ * 4. 更新后的状态再回到界面，界面照着画一遍，如此循环。
  *
- * 2. Intent（用户操作）—— "用户在这一页做了什么"。
- *    比如"点了加号""下拉刷新了"。界面只负责把动作报上来，
- *    具体怎么处理由 ViewModel 决定。用 SharedFlow 承载。
+ * 所以这里只有两条通道：
  *
- * 3. Effect（一次性事件）—— "只需要做一次的事"。
- *    比如"弹一次提示""跳到另一个页面"。这类事做完就没了、不能重来，
- *    所以用只发一次的 Channel 承载，谁拿走就没有了。
+ *   界面 ──上报操作(Intent)──► ViewModel ──算出新状态(State)──► 界面重新画一遍
  *
- * 数据是单向流动的：
+ * 注意**没有第三条"一次性事件"通道**。官方在架构推荐里明确写着：
+ * "Do not send events from the ViewModel to the UI."（强推荐）
+ * 意思是：像"弹一句提示"这种事，不要从 ViewModel 里"发事件"给界面，
+ * 而是把它变成状态的一部分 —— 状态里放一句 [提示文字]，界面显示完再回报一句"显示过了"，
+ * ViewModel 收到后把这句话清掉。
  *
- *     界面 --(用户操作 Intent)--> ViewModel --(新的 State)------> 界面重新画
- *                                       \--(一次性事件 Effect)--> 界面弹提示/跳页
+ * 官方给的理由是：**即使这句话转瞬即逝，UI 状态也要在每一刻都如实反映屏幕上显示的东西**。
+ * 这么做还有个实际好处：转屏、从后台回来之后，这句话不会丢、也不会重复弹。
  *
- * 好处：界面只管"显示"和"上报操作"，不写任何业务判断；
- * 所有逻辑都收在 ViewModel 里，可以单独写测试，不用启动模拟器。
- * =========================================================================
+ * 位置：androidx.lifecycle 的 ViewModel，业务逻辑写在这里，界面只负责显示。
+ * ============================================================================
  */
 
 /** 页面状态的标记接口。你写的每个页面的状态类都要实现它。 */
@@ -45,9 +45,6 @@ interface UiState
 /** 用户操作的标记接口。你写的每个页面的操作类都要实现它。 */
 interface UiIntent
 
-/** 一次性事件的标记接口。你写的每个页面的事件类都要实现它。 */
-interface UiEffect
-
 /**
  * 所有页面 ViewModel 的基类。
  *
@@ -55,9 +52,9 @@ interface UiEffect
  * - [initializeState]：这一页刚打开时，状态是什么？
  * - [handleIntent]：用户做了某个操作，状态该怎么变？
  *
- * 想改状态就调用 [setState]；想弹提示、跳页面就调用 [setEffect]。
+ * 想改状态就调用 [setState]。
  */
-abstract class BaseViewModel<State : UiState, Intent : UiIntent, Effect : UiEffect> : ViewModel() {
+abstract class BaseViewModel<State : UiState, Intent : UiIntent> : ViewModel() {
 
     /**
      * 页面状态存在这里。
@@ -70,18 +67,16 @@ abstract class BaseViewModel<State : UiState, Intent : UiIntent, Effect : UiEffe
      */
     private val mutableState: MutableStateFlow<State> by lazy { MutableStateFlow(initializeState()) }
 
-    /** 页面状态：界面订阅它，拿到新值就把自己重画一遍。 */
+    /**
+     * 页面状态：界面订阅它，拿到新值就把自己重画一遍。
+     *
+     * 对外只给"只读"的这一份，外界改不了；而且它永远保存着当前值，
+     * 所以转屏之后界面重建、中途才来订阅，也能立刻拿到最新状态。
+     */
     val uiState: StateFlow<State> get() = mutableState
 
-    private val _uiIntent: MutableSharedFlow<Intent> = MutableSharedFlow()
-
-    /** 用户操作流：界面不用订阅，基类内部会自己收。 */
-    val uiIntent: SharedFlow<Intent> = _uiIntent.asSharedFlow()
-
-    private val _uiEffect: Channel<Effect> = Channel(Channel.BUFFERED)
-
-    /** 一次性事件流：界面订阅它，用来弹提示、跳页面。 */
-    val uiEffect = _uiEffect.receiveAsFlow()
+    /** 用户操作流：界面不用管它，基类内部会自己收。 */
+    private val uiIntent = MutableSharedFlow<Intent>()
 
     /** 这一页刚打开时的初始状态。 */
     protected abstract fun initializeState(): State
@@ -108,14 +103,7 @@ abstract class BaseViewModel<State : UiState, Intent : UiIntent, Effect : UiEffe
     /** 界面上报一个用户操作。 */
     fun setIntent(intent: Intent) {
         viewModelScope.launch {
-            _uiIntent.emit(intent)
-        }
-    }
-
-    /** 发一个一次性事件，比如弹提示、跳页面。 */
-    fun setEffect(builder: () -> Effect) {
-        viewModelScope.launch {
-            _uiEffect.send(builder())
+            uiIntent.emit(intent)
         }
     }
 }

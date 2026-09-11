@@ -33,7 +33,7 @@ import com.tscaffold.component.common.ui.viewmodel.BaseViewModel
  * }
  * ```
  */
-abstract class BaseFragment<VB : ViewBinding, VM : BaseViewModel<*, *, *>>(
+abstract class BaseFragment<VB : ViewBinding, VM : BaseViewModel<*, *>>(
     private val inflate: (LayoutInflater, ViewGroup?, Boolean) -> VB,
 ) : Fragment() {
 

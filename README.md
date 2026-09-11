@@ -1,44 +1,46 @@
-# TScaffold —— 只保留 MVI 的安卓骨架工程
+# TScaffold —— 只保留"页面怎么写"的安卓骨架工程
 
-一句话说明白：**这是一个只保留"页面怎么写"的最小安卓工程。**
+一句话说明白：**这是一个只保留 UI 状态和用户操作这一套写法的安卓工程。**
 
 没有网络请求、没有图片加载、没有弹窗控件库、没有工具类大礼包——那些都清掉了。
-留下的是一套写页面的固定套路（MVI），外加**一个能完整跑起来、能从数据一路走到界面的示例页面**。
+留下的是一套官方推荐的写法，外加**一个能从取数据一路跑到界面的完整示例**。
 你自己做的组件，后面往预留的位置里填就行。
 
 ---
 
-## 一、先说清楚 MVI 是什么（大白话版）
+## 一、先说清楚这套写法是什么（大白话版）
 
-写一个页面，其实绕不开三件事，MVI 就是把它们分开放、不许混着写：
+写一个页面，绕不开两件事，这套写法就是把它们分开放、不许混着写：
 
-| 三件事 | 大白话 | 放在哪儿 | 示例里的例子 |
+| 两件事 | 大白话 | 放在哪儿 | 示例里的例子 |
 |---|---|---|---|
-| **状态**（State） | 这一页现在长什么样 | 一个 data class | 列表有几条、正在转圈、还是加载失败 |
+| **状态**（State） | 这一页现在长什么样 | 一个 data class | 列表有几条、正在转圈、还是加载失败、要不要弹句话 |
 | **操作**（Intent） | 用户在这一页干了什么 | 一组 sealed interface 分支 | 点了"重新加载"、勾了某一条、点了"清掉已完成" |
-| **事件**（Effect） | 只需要做一次的事 | 一组 sealed interface 分支 | 弹一次提示 |
 
-它们之间的走动方向是固定的，永远只有这一条：
+它们的走动方向是固定的，永远只有这一条：
 
 ```
         用户点了按钮
              │
              ▼
    界面 ──上报操作──► ViewModel ──算出新状态──► 界面重新画一遍
-                          │
-                          └──发出一次性事件──► 弹提示 / 跳页面
+                          ▲                        │
+                          └──── 界面回报"我显示过了" ┘
 ```
+
+**注意最后那一条回报线**。"弹一句提示"这类事情，不是由 ViewModel 直接命令界面去弹，
+而是把"要说的那句话"当成状态的一部分（`state.message`）。界面看到状态里有话就显示出来，
+显示完回报一句 `MessageShown`，ViewModel 收到后把这句话清掉。
+
+这不是我们自己想出来的规矩，是官方文档明确要求的（"Do not send events from the ViewModel to the UI."，
+强推荐），理由很直白：**状态要在每一刻都如实反映屏幕上显示的东西**。这么做还有个实际好处——
+转屏、从后台回来，这句话不会丢，也不会重复弹。
 
 **这样写有什么好处？**
 
 1. 界面里不用写 if/else 的判断逻辑，只负责"显示"和"上报操作"，看代码快。
 2. 所有逻辑都收在 ViewModel 一个文件里，写单元测试不用启动模拟器。
 3. 状态只有一个来源，不会出现"两个地方各改一半、显示对不上"的问题。
-
-**为什么"事件"要单独拎出来？**
-因为它跟状态不一样。状态是"现在是几就是几"，界面随时可以重新读一遍；
-而"弹一次提示"这种事一旦被重新执行一次，用户就会看到弹两次。
-所以事件走单独的通道，谁拿走就没了，不会重复。
 
 ---
 
@@ -48,7 +50,7 @@
 TScaffold
 ├── app                       应用外壳：只有一个首页，放两个按钮进示例
 ├── component_business_basic   ★ 你以后写页面的地方（现在是"任务列表"示例）
-├── component_common           ★ MVI 核心（这套写法的全部家当都在这）
+├── component_common           ★ 这套写法的核心（全部家当都在这）
 └── component_basic            最底层，留给你放基础能力（现在几乎是空的）
 ```
 
@@ -56,18 +58,18 @@ TScaffold
 
 ```
 app  →  component_business_basic  →  component_common  →  component_basic
-（外壳）      （你的页面）            （MVI 写法）        （基础能力）
+（外壳）      （你的页面）            （核心写法）        （基础能力）
 ```
 
-### component_common（MVI 核心，一共 5 个文件）
+### component_common（核心，一共 5 个文件）
 
 | 文件 | 作用 |
 |---|---|
-| `ui/viewmodel/BaseViewModel.kt` | 三样东西的定义 + 所有 ViewModel 的父类。**想弄懂这套写法，看这一个文件就够** |
+| `ui/viewmodel/BaseViewModel.kt` | 状态和操作的定义 + 所有 ViewModel 的父类。**想弄懂这套写法，看这一个文件就够** |
 | `ui/contract/BaseContract.kt` | 一个页面约定的空白模板，照抄着改成自己的 |
 | `ui/activity/BaseActivity.kt` | 用 XML 写页面时的 Activity 父类，帮你加载布局、按顺序调用你的代码 |
 | `ui/fragment/BaseFragment.kt` | 同上，Fragment 版 |
-| `ui/compose/MviCompose.kt` | 用 Compose 写页面时的两个小工具：`observeState()` / `observeEffect()` |
+| `ui/compose/MviCompose.kt` | 用 Compose 写页面时的小工具：`observeState()` |
 
 ### component_business_basic（示例，6 个源码文件 + 3 个布局）
 
@@ -75,16 +77,16 @@ app  →  component_business_basic  →  component_common  →  component_basic
 
 | 文件 | 作用 |
 |---|---|
-| `ui/task/contract/TaskContract.kt` | 这个页面的状态 / 操作 / 事件 |
+| `ui/task/contract/TaskContract.kt` | 这个页面的状态 / 操作 |
 | `ui/task/data/TaskRepository.kt` | 数据从哪来。**现在是假数据源**，加 Retrofit 时换这里 |
 | `ui/task/viewmodel/TaskViewModel.kt` | 这个页面的全部逻辑 |
-| `ui/task/view/TaskActivity.kt` | **XML 版**：`BaseActivity`，顶部统计 + 承载下面的 Fragment |
+| `ui/task/view/TaskActivity.kt` | **XML 版**：`BaseActivity`，顶部统计 + 承担"弹提示"，并承载下面的 Fragment |
 | `ui/task/view/TaskFragment.kt` | **XML 版**：`BaseFragment`，列表本体 + 各按钮 |
 | `ui/task/compose/TaskComposeActivity.kt` | **Compose 版**：同样一份逻辑，换成 Compose 画界面 |
 
 > 注意：XML 版里 Activity 和 Fragment **共用同一个 ViewModel**（Activity 用 `by viewModels()` 建，Fragment 用 `by activityViewModels()` 拿），
 > 所以顶部的"已完成 x / y"和下面列表永远是同一份数据。
-> 另外 **一次性事件只在 Activity 一处收**——如果两处都收，一条提示会被抢着消费，出现"有时候弹有时候不弹"的怪现象。记住：状态可以多处订阅，事件只在一处处理。
+> 而"弹提示"只由 Activity 一处负责——两处都做的话，一句话会被弹两次。
 
 ### 测试（在电脑上跑，不用模拟器）
 
@@ -113,17 +115,18 @@ app  →  component_business_basic  →  component_common  →  component_basic
 | ③ | 界面立刻显示转圈，因为状态变了 | `TaskFragment.render()` |
 | ④ | 去取数据（现在是假数据源，等 800 毫秒） | `TaskRepository.loadTasks()` |
 | ⑤ | 拿到了 → 把数据写进状态，界面自动变成列表 | `TaskViewModel.load()` 的 `setState` |
-| ⑤' | 出错了 → 把错误信息写进状态，界面自动显示错误 + "重试" | 同上，走 `catch` 分支 |
-| ⑥ | 顺手弹一次提示（只弹一次，不重复） | `setEffect { ShowToast(...) }` → Activity 收下并弹 Toast |
+| ⑤' | 出错了 → 把错误信息和一句提示写进状态，界面自动显示错误 + "重试" | 同上，走 `catch` 分支 |
+| ⑥ | 状态里有了"要提示的话"，界面弹一次 | `TaskActivity.showMessageOnce()` |
+| ⑦ | 弹完回报 `MessageShown`，ViewModel 把那句话清掉 | 回到 `TaskViewModel.handleIntent` |
 
 ### 你可以自己点一遍验证（都是实测过的）
 
 1. 打开首页 → 点"示例一：XML 写的（Activity + Fragment）"
-   → 先看到转圈，然后出现 4 条任务，顶部显示"已完成 1 / 4"。
+   → 先看到转圈，然后出现 4 条任务，顶部显示"已完成 1 / 4"，并弹一句"加载完成，共 4 条"。
 2. 勾掉某一条 → 顶部统计立刻跟着变（**这就是 Activity 和 Fragment 共用同一份状态**）。
 3. 点"清掉已完成" → 已完成的那几条从列表消失，顶部统计同步变化。
 4. 连点两次"重新加载" → 第一次条数变多；**第二次会故意失败**（假数据源里写死了每第 3 次报错），
-   界面出现红色的错误说明和"重试"按钮，同时弹一条提示。
+   界面出现红色的错误说明和"重试"按钮，同时弹一句提示。
 5. 点"重试" → 恢复正常，列表又出来了。这就是"失败之后要能自己恢复"。
 6. 回首页 → 点"示例二：Compose 写的" → 同样的数据和同样的行为，只是界面换成了 Compose。
 
@@ -132,59 +135,68 @@ app  →  component_business_basic  →  component_common  →  component_basic
 
 ---
 
-## 四、和 MVI 的官方定义逐条对照
+## 四、和安卓官方文档的对照
 
-MVI 不是随口叫的名字，它有两个明确出处：
+### 先说一件要紧的事：官网没有"MVI"的定义
 
-- **André Staltz**（Cycle.js 作者）2015 年提出，核心是"界面、状态、用户意图"三者绕成一个闭环；
-- **Hannes Dorfmann**（Mosby 作者）2017 年那组《Reactive Apps with Model-View-Intent》把它落到安卓上，定下了下面这几条。
+用 Google 搜 `site:developer.android.com MVI`，出来的要么是第三方博客（CSDN、掘金、Medium 上的个人文章），
+要么是官方的"状态持有者""架构推荐"页面。把官方那几页架构文档的正文抓下来全文搜，
+**`MVI`、`Model-View-Intent` 一次都没出现**。
 
-这个工程是照着这几条对过的，结果如下：
+官方用的说法叫 **单向数据流（UDF, Unidirectional Data Flow）**，出处是官方架构文档：
 
-| # | MVI 的要求（大白话） | 本工程 | 说明 |
-|---|---|---|---|
-| 1 | 数据只朝一个方向走：操作 → 状态 → 界面 → 操作 | ✅ 符合 | 界面只上报操作，改状态只有 ViewModel 能改 |
-| 2 | **界面是状态的函数**：自己不存东西、不做判断 | ✅ 符合 | XML 版是 `render(state)`；Compose 版的界面只接 `state` 和 `onIntent`，连 ViewModel 都拿不到 |
-| 3 | Intent 表示"用户想干什么" | ✅ 符合 | `TaskContract.Intent` 就是"用户点了什么、勾了哪条" |
-| 4 | 状态不可变，而且是**唯一的事实来源** | ✅ 符合 | 状态用 `data class` 装 `List`；能从别的字段算出来的一律现算（`loading`、`total`、`doneCount`），不另存一份 |
-| 5 | 状态变化要由纯函数算：新状态 = reduce(旧状态, 结果) | ⚠️ 简化了 | 见下面「第一处不同」 |
-| 6 | 网络、弹窗这类"跟外界打交道的事"不能写在状态计算和界面里 | ✅ 基本符合 | 取数据在 ViewModel 里；弹提示由界面执行（界面本来就是干这个的地方） |
+- [UI 层（UI layer）](https://developer.android.google.cn/topic/architecture/ui-layer)
+- [UI 事件（UI events）](https://developer.android.google.cn/topic/architecture/ui-layer/events)
+- [状态持有者与 UI 状态](https://developer.android.google.cn/topic/architecture/ui-layer/stateholders)
+- [安卓架构推荐（Recommendations）](https://developer.android.google.cn/topic/architecture/recommendations)
 
-### 第一处不同：没有单独的 reduce 函数，而是写在处理操作的旁边
+> 上面链接是 Google 官方的中国站域名；本机连不上 `developer.android.com` 主站（DNS 能解析但连接超时），
+> 中国站是同一个官方文档站的镜像，内容一致。
 
-严格版（Mosby 那套）会拆成两步：
+官方对 UDF 的原话是：
 
-```
-用户操作 → 业务逻辑算出"结果" → 一个纯函数把"旧状态 + 结果"算成"新状态"
-```
+> "The pattern where the state flows down and the events flow up is called a unidirectional data flow (UDF)."
+> （状态往下走、事件往上走，这个模式就叫单向数据流。）
 
-我们这个骨架里，`setState { copy(...) }` 的那个**大括号本身就是那个纯函数**（给同样的旧状态，一定算出同样的新状态），只是没有单独抽成一个方法。Airbnb 的 Mavericks 也是这个路子，所以这么写不算跑偏。
+官方把它拆成四句话，这个工程就是照着这四句写的：
 
-- **换来的是**：代码短，不用每个页面都多写一个 reduce 方法，上手快。
-- **代价是**：动作多了以后，"这个状态会被哪些地方改"没法一眼看全，也做不了"操作回放"这类调试。
-- **什么时候该升级**：一页有十几个操作了，或者你要做操作回放调试，就把 reduce 单独拆出来。
+1. ViewModel 持有并对外暴露 UI 状态，界面订阅它；
+2. 界面把用户的操作告诉 ViewModel；
+3. ViewModel 处理这些操作并更新状态；
+4. 更新后的状态再回到界面，界面照着画一遍，如此循环。
 
-### 第二处不同：Effect（一次性事件）这条通道，标准 MVI 里没有
+### 逐条对照官方写明的规则
 
-标准 MVI 只有"状态"一个事实来源，连"弹一次提示"也要放进状态里（比如 `state.toastMessage`，弹完再上报一个"清掉提示"的操作）。
+| 官方原话 | 优先级 | 本工程 |
+|---|---|---|
+| "Follow Unidirectional Data Flow (UDF) ... ViewModels expose UI state using the observer pattern and receive actions from the UI through method calls." | 强推荐 | ✅ 状态是 `StateFlow`，操作是 `setIntent(...)` 方法调用 |
+| "Do not send events from the ViewModel to the UI. ... Process the event immediately in the ViewModel and cause a state update with the result." | 强推荐 | ✅ **上一版违反，已改**，见下面"改了什么" |
+| "Use lifecycle-aware UI state collection ... `collectAsStateWithLifecycle`." | 强推荐 | ✅ XML 版用 `repeatOnLifecycle`，Compose 版用 `observeState()`（内部就是它） |
+| "Keep ViewModels independent of the Android lifecycle ... Don't pass `Activity`, `Context`, or `Resources` as a dependency." | 强推荐 | ✅ ViewModel 只拿到一个仓库，不碰任何界面类型 |
+| "Use ViewModels at screen level. Do not use ViewModels in reusable pieces of UI." | 强推荐 | ✅ ViewModel 只挂在 Activity 上 |
+| "Expose a UI state ... through a single property called `uiState`." / "Make `uiState` a `StateFlow`." | 推荐 | ✅ 就叫 `uiState`，类型是 `StateFlow` |
+| "The UI state is an immutable snapshot of the details needed for the UI to render."（UI 层页） | — | ✅ 状态是 `data class` + 只读 `List`，能推算的字段现算 |
+| "Keep UI logic in the UI, not in the ViewModel, particularly when it involves UI types like `Context`."（UI 层页） | — | ✅ ViewModel 只说"有句话要提示"，用 Toast 还是 Snackbar 由界面决定 |
+| "DO NOT pass a ViewModel instance to a plain state holder class."（状态持有者页） | — | ✅ Compose 的界面只接 `state` 和 `onIntent` |
+| "Test StateFlows ... Assert on the `value` property." / "Prefer fakes to mocks." | 强推荐 | ✅ 测试断言 `uiState.value`，用真的假数据源而不是 mock |
+| "Use dependency injection ... mainly constructor injection when possible." | 强推荐 | ✅ 仓库由构造参数传进来（示例里给了默认值图省事） |
 
-我们额外加了一条 Channel 通道，原因很实在：用状态表示"弹一次提示"，得额外配一个"弹完请清掉"的操作，写起来啰嗦、还容易忘，一忘就会重复弹。
+### 上一版错在哪、这次改了什么
 
-- **代价是要守住一条纪律**：事件只在一处收。示例里只有 Activity 收 `uiEffect`，Fragment 只收 `uiState`。两处都收的话，一条提示会被两边抢着消费，表现就是"有时候弹有时候不弹"。
+（诚实记一笔，免得以后又照着错的说）
 
-### 核对的时候顺手修掉的三个坑（记在这，免得以后又踩）
-
-1. **基类不能在自己构造的时候去调子类的 `initializeState()`**。
-   基类的初始化比子类构造参数的赋值更早，子类要是在 `initializeState()` 里用了自己的构造参数，
-   对象类型会直接空指针，数字类型会**静默变成 0**——查起来非常费劲。
-   已经在 `BaseViewModel` 里改成"用到的时候才初始化"，并补了测试盯住它（测试先跑失败、改完才通过）。
-2. **同一个事实不要存两份**。
-   原来 `loading` 和 `loadStatus = Loading` 说的是一件事，哪天改了一处忘了另一处就对不上。
-   现在 `loading` 直接由 `loadStatus` 现算，状态里只留最原始的那几样。
-3. **Compose 的界面不该拿到 ViewModel**。
-   原来整个 ViewModel 传进了界面函数，界面就不是"状态的函数"了，也没法单独预览。
-   现在界面只接 `state` 和 `onIntent`，于是可以直接造一份假状态来预览
-   （`TaskComposeActivity.kt` 末尾有两个预览：有数据的样子、加载失败的样子，不用跑 App 就能看）。
+- **错的**：我之前引的是 André Staltz（Cycle.js，JS 那边）和 Hannes Dorfmann（Mosby）的文章，
+  还给"ViewModel 往界面发一次性事件"（`uiEffect` 那条 Channel 通道）找了个"合理扩展"的说法。
+  按官方文档，**这条是明确违反强推荐规则的**，不是"扩展"，是"不要这么干"。
+- **改了什么**：
+  1. 基类去掉了 `UiEffect` / `uiEffect` / `setEffect`，泛型从三个减到两个（`State` 和 `Intent`）；
+  2. 提示改成状态里的一个字段 `message: String?`，加一个操作 `MessageShown`；
+  3. 界面显示完那句话之后回报 `MessageShown`，ViewModel 把它清掉。Compose 版用的是官方推荐的
+     `LifecycleResumeEffect`（只在页面可见时执行）；
+  4. 13 个单元测试同步改掉，仍然全过。
+- **顺带撤掉一个说法**：上一版我说"我们简化了 reducer，和官方定义有差别"。
+  官方文档**从头到尾没有要求"纯函数 reducer"**，只要求"状态是被 ViewModel 转换过的应用数据"。
+  所以 `setState { copy(...) }` 完全符合官方要求，不用当成缺陷。
 
 ---
 
@@ -193,23 +205,42 @@ MVI 不是随口叫的名字，它有两个明确出处：
 `BaseViewModel` 一共就四样东西，很好记：
 
 ```kotlin
-abstract class BaseViewModel<State : UiState, Intent : UiIntent, Effect : UiEffect> : ViewModel() {
+abstract class BaseViewModel<State : UiState, Intent : UiIntent> : ViewModel() {
 
-    val uiState: StateFlow<State>      // 页面状态：界面订阅它
-    val uiEffect: Flow<Effect>         // 一次性事件：界面订阅它
+    val uiState: StateFlow<State>   // 页面状态：界面订阅它
 
     protected abstract fun initializeState(): State      // 页面刚打开时是什么样
     protected abstract fun handleIntent(intent: Intent)  // 用户操作之后要干什么
 
-    protected fun setState(...)   // 改状态
-    fun setIntent(intent: Intent) // 界面上报操作
-    fun setEffect(...)            // 发一次性事件
+    protected fun setState(...)      // 改状态
+    fun setIntent(intent: Intent)    // 界面上报操作
+}
+```
+
+拿"清掉已完成"举例，逻辑就这么点：
+
+```kotlin
+override fun handleIntent(intent: TaskContract.Intent) {
+    when (intent) {
+        TaskContract.Intent.ClearDone -> clearDone()
+        TaskContract.Intent.MessageShown -> setState { copy(message = null) }  // 界面弹完了，清掉
+        // ...
+    }
+}
+
+private fun clearDone() {
+    setState {
+        copy(
+            tasks = tasks.filterNot { it.done },
+            message = "清掉了 $doneCount 条已完成的",   // 要提示的话，写进状态
+        )
+    }
 }
 ```
 
 ### 怎么写一个自己的页面（XML 版）
 
-**第 1 步**：抄一份 `TaskContract.kt`，改成你这一页的三样东西。
+**第 1 步**：抄一份 `TaskContract.kt`，改成你这一页的状态和操作。
 
 **第 2 步**：抄 `TaskViewModel.kt`，实现 `initializeState()` 和 `handleIntent()`，逻辑全写这儿。
 
@@ -229,8 +260,14 @@ class YourActivity :
     override fun observe() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch { viewModel.uiState.collect { state -> /* 把 state 画到界面上 */ } }
-                launch { viewModel.uiEffect.collect { effect -> /* 弹提示、跳页面 */ } }
+                viewModel.uiState.collect { state ->
+                    // 把 state 画到界面上
+                    // 状态里有要提示的话，就显示出来，然后回报一句
+                    state.message?.let {
+                        Toast.makeText(this@YourActivity, it, Toast.LENGTH_SHORT).show()
+                        viewModel.setIntent(YourContract.Intent.MessageShown)
+                    }
+                }
             }
         }
     }
@@ -248,13 +285,18 @@ class YourActivity :
 setContent {
     MaterialTheme {
         val state by viewModel.observeState()      // 状态变了自动重画
-        viewModel.observeEffect { effect -> ... }  // 处理一次性事件
+
+        // 状态里有要提示的话，页面可见时弹出来，然后回报一句
+        LifecycleResumeEffect(state.message) {
+            state.message?.let {
+                Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                viewModel.setIntent(YourContract.Intent.MessageShown)
+            }
+            onPauseOrDispose { }
+        }
 
         // 界面只接"当前状态"和"往哪儿上报操作"，自己不碰 ViewModel
-        YourScreen(
-            state = state,
-            onIntent = viewModel::setIntent,
-        )
+        YourScreen(state = state, onIntent = viewModel::setIntent)
     }
 }
 
@@ -279,10 +321,11 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 
 | 测试文件 | 个数 | 盯住什么 |
 |---|---:|---|
-| `BaseViewModelTest` | 5 | 基类本身的行为：初始状态能不能用子类构造参数、上报的操作会不会被收到、状态是不是"换一份新的"、一次性事件是不是取走就没、界面中途才开始订阅能不能立刻拿到当前值 |
-| `TaskViewModelTest` | 8 | 示例的数据流：进页面自动加载、加载中的中间状态、加载完成弹提示、连着三次加载第三次失败、失败后重试能恢复、勾选只动一条、清空只动已完成那几条、没有已完成时只弹提示不改数据 |
+| `BaseViewModelTest` | 5 | 基类本身的行为：初始状态能不能用子类构造参数、上报的操作会不会被收到、状态是不是"换一份新的"、状态里那句提示回报之后会不会被清掉、界面中途才开始订阅能不能立刻拿到当前值 |
+| `TaskViewModelTest` | 8 | 示例的数据流：进页面自动加载、加载中的中间状态、加载完成留下提示、连着三次加载第三次失败、失败后重试能恢复、勾选只动一条、清空只动已完成那几条、没有已完成时只多一句提示不改数据 |
 
-仓库里那个"等 800 毫秒"在测试里是**虚拟时间**，不用真等；这也正是"逻辑都收在 ViewModel 里"的好处 —— 不用模拟器就能把每条分支都验一遍。
+仓库里那个"等 800 毫秒"在测试里是**虚拟时间**，不用真等；这也正是"逻辑都收在 ViewModel 里"的好处 ——
+不用模拟器就能把每条分支都验一遍。
 
 ---
 
@@ -299,7 +342,7 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 | core-ktx | 1.19.0 | |
 | appcompat | 1.8.0 | XML 页面的主题依赖它 |
 | fragment-ktx | 1.9.0 | `activityViewModels()` 来自它 |
-| lifecycle（runtime / viewmodel / compose） | 2.11.0 | |
+| lifecycle（runtime / viewmodel / compose） | 2.11.0 | `LifecycleResumeEffect`、`collectAsStateWithLifecycle` 都在这 |
 | activity（ktx / compose） | 1.13.0 | |
 | Compose BOM | 2026.09.00 | 所有 Compose 库的版本由它统一决定 |
 | kotlinx-coroutines（android / test） | 1.11.0 | test 那个是单元测试用的 |
@@ -340,13 +383,16 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 这样 **Contract、ViewModel、三份界面一行都不用改** —— 这就是把"取数据"单独放一层的意义。
 
+顺带一提：官方还建议 ViewModel 的依赖走构造参数注入（现在是给了个默认值图省事），
+等依赖多起来（网络、存储、日志）再考虑加一个手动依赖容器或 Hilt。
+
 ---
 
 ## 十、你自己的组件往哪儿填
 
 | 你要加的东西 | 放哪儿 |
 |---|---|
-| 新页面（Contract / ViewModel / 界面） | `component_business_basic`，照抄 `ui/task` 的结构 |
+| 新页面（状态 / 操作 / 界面） | `component_business_basic`，照抄 `ui/task` 的结构 |
 | 通用 UI 控件（弹窗、进度条、自定义 View……） | `component_common`，新建 `ui/widget` 目录 |
 | 网络、本地存储、日志、工具类 | `component_basic` |
 | 应用启动时要做的初始化 | `component_basic` 的 `BasicApplication.onCreate()` |
@@ -356,6 +402,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 1. 用 XML 写页面时，Activity 必须挂一个 AppCompat 主题（示例用的是 `business_basic_theme`），否则打开就闪退。
 2. 新模块的资源名记得加前缀（示例模块用的是 `business_basic_`），免得以后模块多了资源重名打架。
-3. 界面里不要写业务判断，全部塞进 `handleIntent`，这是这套写法唯一需要守的规矩。
-4. 示例里的列表是"清空重建"的写法，为的是让人一眼看懂；条数多了要换成 RecyclerView（那属于你自己要做的组件）。
-5. 名字都统一成 TScaffold 了：`rootProject.name`、`app` 的 `applicationId` 与 `namespace`、各模块 `namespace`、包名 `com.tscaffold`、应用显示名 `app_name`、Compose 主题 `TScaffoldTheme`、XML 主题 `Theme.TScaffold`。以后换正式名字，按这几处一次替掉即可。
+3. 界面里不要写业务判断，全部塞进 `handleIntent`；要提示的话写进状态，不要自己造一条"发事件"的通道。
+4. 能从别的字段算出来的，别再在状态里存一份（示例里 `loading`、`total`、`doneCount` 都是现算的）。
+5. 示例里的列表是"清空重建"的写法，为的是让人一眼看懂；条数多了要换成 RecyclerView（那属于你自己要做的组件）。
+6. 名字都统一成 TScaffold 了：`rootProject.name`、`app` 的 `applicationId` 与 `namespace`、各模块 `namespace`、包名 `com.tscaffold`、应用显示名 `app_name`、Compose 主题 `TScaffoldTheme`、XML 主题 `Theme.TScaffold`。以后换正式名字，按这几处一次替掉即可。

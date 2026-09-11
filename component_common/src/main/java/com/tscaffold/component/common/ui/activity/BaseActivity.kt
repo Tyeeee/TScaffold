@@ -26,13 +26,13 @@ import com.tscaffold.component.common.ui.viewmodel.BaseViewModel
  *
  *     override fun initialize(savedInstanceState: Bundle?) { 绑定点击事件 }
  *
- *     override fun observe() { 订阅 uiState / uiEffect，把状态画到界面上 }
+ *     override fun observe() { 订阅 uiState，把状态画到界面上 }
  * }
  * ```
  *
  * @param inflate 怎么把 XML 变成 ViewBinding，直接写 `XxxBinding::inflate` 即可。
  */
-abstract class BaseActivity<VB : ViewBinding, VM : BaseViewModel<*, *, *>>(
+abstract class BaseActivity<VB : ViewBinding, VM : BaseViewModel<*, *>>(
     private val inflate: (LayoutInflater) -> VB,
 ) : AppCompatActivity() {
 

@@ -1,12 +1,11 @@
 package com.tscaffold.component.business.basic.ui.task.contract
 
 import com.tscaffold.component.business.basic.ui.task.data.Task
-import com.tscaffold.component.common.ui.viewmodel.UiEffect
 import com.tscaffold.component.common.ui.viewmodel.UiIntent
 import com.tscaffold.component.common.ui.viewmodel.UiState
 
 /**
- * "任务列表"这个示例页面的三样东西。
+ * "任务列表"这个示例页面的状态和操作。
  *
  * 三份界面（XML 的 TaskActivity + TaskFragment、Compose 的 TaskComposeActivity）
  * 全都共用这一个文件，所以界面怎么写都不会影响逻辑。
@@ -23,7 +22,16 @@ class TaskContract {
     data class State(
         val tasks: List<Task> = emptyList(),
         val loadStatus: LoadStatus = LoadStatus.Idle,
+        /** 加载失败的原因，会一直显示在页面上（属于"当前状态"）。 */
         val failMessage: String? = null,
+        /**
+         * 要弹给用户看的一句话（属于"弹一次就过去"的内容）。
+         *
+         * 按官方文档的做法，这种提示也放在状态里，而不是从 ViewModel 里"发事件"给界面。
+         * 界面显示完之后要回报 [Intent.MessageShown]，ViewModel 收到就把它清空。
+         * 好处：转屏、从后台回来之后这句话不会丢，也不会重复弹。
+         */
+        val message: String? = null,
     ) : UiState {
 
         /** 正在加载。直接由 [loadStatus] 推出来，不另外存一份。 */
@@ -58,10 +66,8 @@ class TaskContract {
 
         /** 把已完成的一次清掉。 */
         data object ClearDone : Intent
-    }
 
-    /** 一次性事件：弹一次提示，做完就没了。 */
-    sealed interface Effect : UiEffect {
-        data class ShowToast(val message: String) : Effect
+        /** 界面把 [State.message] 那句话显示完了，回报一句，让 ViewModel 清掉它。 */
+        data object MessageShown : Intent
     }
 }

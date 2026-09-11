@@ -16,12 +16,16 @@ import kotlinx.coroutines.launch
  *   ③ repository 去取数据（现在是假的，以后是 Retrofit）
  *   ④ 拿到了 → setState 把数据写进状态          界面自动重画成列表
  *      出错了 → setState 写进错误信息           界面自动显示错误和"重试"
- *   ⑤ 顺带 setEffect 发一条提示                 界面弹一次 Toast
+ *   ⑤ 要提示的话也写进状态（message）           界面弹一次，然后回报 MessageShown 清掉
+ *
+ * 注意第 ⑤ 步：这里**没有**"从 ViewModel 往界面发事件"那种通道。
+ * 官方架构推荐里写着 "Do not send events from the ViewModel to the UI."（强推荐），
+ * 提示这类内容一律当作状态的一部分。
  */
 class TaskViewModel(
     // 现在是假的数据源；接上 Retrofit 后，这里换成真正的仓库实现即可
     private val repository: TaskRepository = TaskRepository(),
-) : BaseViewModel<TaskContract.State, TaskContract.Intent, TaskContract.Effect>() {
+) : BaseViewModel<TaskContract.State, TaskContract.Intent>() {
 
     /** 页面刚打开时的样子：什么都还没有，也没开始加载。 */
     override fun initializeState(): TaskContract.State = TaskContract.State()
@@ -40,16 +44,20 @@ class TaskViewModel(
             is TaskContract.Intent.Toggle -> toggle(intent.id)
 
             TaskContract.Intent.ClearDone -> clearDone()
+
+            // 界面把提示显示完了，回报一句 —— 我们把那句话清掉，状态回到"屏幕上没有这句话"的样子
+            TaskContract.Intent.MessageShown -> setState { copy(message = null) }
         }
     }
 
-    /** ② ③ ④ ⑤ 全在这个方法里：改状态 → 取数据 → 再改状态 → 发提示。 */
+    /** 改状态 → 取数据 → 再改状态（顺手把要提示的话写进状态）。 */
     private fun load() {
-        // 先告诉界面"我在加载"，并清掉上一次的错误信息
+        // 先告诉界面"我在加载"，并清掉上一次的错误信息和残留的提示
         setState {
             copy(
                 loadStatus = TaskContract.LoadStatus.Loading,
                 failMessage = null,
+                message = null,
             )
         }
 
@@ -65,17 +73,17 @@ class TaskViewModel(
                         } else {
                             TaskContract.LoadStatus.Success
                         },
+                        message = "加载完成，共 ${tasks.size} 条",
                     )
                 }
-                setEffect { TaskContract.Effect.ShowToast("加载完成，共 ${tasks.size} 条") }
             } catch (e: Exception) {
                 setState {
                     copy(
                         loadStatus = TaskContract.LoadStatus.Failed,
                         failMessage = e.message ?: "未知错误",
+                        message = "加载失败，点重试再来一次",
                     )
                 }
-                setEffect { TaskContract.Effect.ShowToast("加载失败，点重试再来一次") }
             }
         }
     }
@@ -87,14 +95,18 @@ class TaskViewModel(
         }
     }
 
-    /** 清掉已完成的。一条都没有时不改状态，只弹个提示。 */
+    /** 清掉已完成的。一条都没有时不改数据，只让状态里多出一句提示。 */
     private fun clearDone() {
         val doneCount = uiState.value.doneCount
         if (doneCount == 0) {
-            setEffect { TaskContract.Effect.ShowToast("还没有完成的任务") }
+            setState { copy(message = "还没有完成的任务") }
             return
         }
-        setState { copy(tasks = tasks.filterNot { it.done }) }
-        setEffect { TaskContract.Effect.ShowToast("清掉了 $doneCount 条已完成的") }
+        setState {
+            copy(
+                tasks = tasks.filterNot { it.done },
+                message = "清掉了 $doneCount 条已完成的",
+            )
+        }
     }
 }
