@@ -3,20 +3,20 @@
 
     <!--
       component_business_basic（示例业务层）
-      这里放的是两个示例页面，你要写自己的页面时照抄这两个的结构即可：
-      - CounterActivity        ：用 XML 布局写的版本
-      - CounterComposeActivity ：用 Compose 写的版本
-      两个页面共用同一个 CounterViewModel。
+      这里放的是"任务列表"这一个示例的两种写法，你要写自己的页面时照抄它们即可：
+      - TaskActivity        ：XML 版（BaseActivity 承载 BaseFragment，列表在 Fragment 里）
+      - TaskComposeActivity ：Compose 版
+      两者共用同一个 TaskViewModel 和同一份 TaskContract。
     -->
     <application>
 
         <activity
-            android:name="com.tscaffold.component.business.basic.ui.counter.view.CounterActivity"
+            android:name="com.tscaffold.component.business.basic.ui.task.view.TaskActivity"
             android:exported="false"
             android:theme="@style/business_basic_theme" />
 
         <activity
-            android:name="com.tscaffold.component.business.basic.ui.counter.compose.CounterComposeActivity"
+            android:name="com.tscaffold.component.business.basic.ui.task.compose.TaskComposeActivity"
             android:exported="false"
             android:theme="@style/business_basic_theme" />
 

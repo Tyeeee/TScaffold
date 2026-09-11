@@ -1,6 +1,6 @@
 // component_business_basic —— 示例业务层
-// 里面是两个"计数器"示例页面（XML 版 + Compose 版），共用同一个 CounterViewModel。
-// 你写自己的页面时，照抄这两个的结构即可。
+// 里面是"任务列表"这一个示例的两种写法（XML 版 + Compose 版），共用同一个 TaskViewModel。
+// 你写自己的页面时，照抄这个结构即可。
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)

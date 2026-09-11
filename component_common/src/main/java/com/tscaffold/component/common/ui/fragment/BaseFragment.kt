@@ -16,13 +16,16 @@ import com.tscaffold.component.common.ui.viewmodel.BaseViewModel
  * 2. 视图准备好之后调用你实现的两个方法；
  * 3. 视图销毁时把 [viewBinding] 清空，避免内存泄漏。
  *
- * 子类长这样：
+ * 子类长这样（示例见 component_business_basic 的 TaskFragment）：
  *
  * ```
- * class CounterFragment :
- *     BaseFragment<FragmentCounterBinding, CounterViewModel>(FragmentCounterBinding::inflate) {
+ * class TaskFragment :
+ *     BaseFragment<BusinessBasicFragmentTaskBinding, TaskViewModel>(
+ *         BusinessBasicFragmentTaskBinding::inflate
+ *     ) {
  *
- *     override val viewModel: CounterViewModel by viewModels()
+ *     // 想和 Activity 共用同一份数据就写 activityViewModels()，想自己独立一份就写 viewModels()
+ *     override val viewModel: TaskViewModel by activityViewModels()
  *
  *     override fun initialize(savedInstanceState: Bundle?) { 绑定点击事件 }
  *

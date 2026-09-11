@@ -14,13 +14,15 @@ import com.tscaffold.component.common.ui.viewmodel.BaseViewModel
  * 2. 在 onCreate 里按顺序调用你实现的两个方法；
  * 3. 把 [viewModel] 的位置留给你，通常一行 `by viewModels()` 就够了。
  *
- * 子类长这样（示例见 component_business_basic 的 CounterActivity）：
+ * 子类长这样（示例见 component_business_basic 的 TaskActivity）：
  *
  * ```
- * class CounterActivity :
- *     BaseActivity<ActivityCounterBinding, CounterViewModel>(ActivityCounterBinding::inflate) {
+ * class TaskActivity :
+ *     BaseActivity<BusinessBasicActivityTaskBinding, TaskViewModel>(
+ *         BusinessBasicActivityTaskBinding::inflate
+ *     ) {
  *
- *     override val viewModel: CounterViewModel by viewModels()
+ *     override val viewModel: TaskViewModel by viewModels()   // 这一行系统帮你管好
  *
  *     override fun initialize(savedInstanceState: Bundle?) { 绑定点击事件 }
  *

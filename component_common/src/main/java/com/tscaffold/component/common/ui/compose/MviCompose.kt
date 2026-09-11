@@ -15,7 +15,7 @@ import com.tscaffold.component.common.ui.viewmodel.UiState
 /**
  * 用 Compose 写页面时的两个小工具，和 XML 版的 BaseActivity.observe() 作用一样。
  *
- * 用法（示例见 component_business_basic 的 CounterComposeActivity）：
+ * 用法（示例见 component_business_basic 的 TaskComposeActivity）：
  *
  * ```
  * val state by viewModel.observeState()        // 拿到页面状态，状态一变界面自动重画

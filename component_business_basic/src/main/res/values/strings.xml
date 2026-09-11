@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="business_basic_counter_increase">加一</string>
-    <string name="business_basic_counter_decrease">减一</string>
-    <string name="business_basic_counter_reset">归零</string>
-    <string name="business_basic_counter_default_message">点一下按钮试试</string>
+    <!-- 任务列表示例用到的文字 -->
+    <string name="business_basic_task_summary">已完成 %1$d / %2$d</string>
+    <string name="business_basic_task_refresh">重新加载</string>
+    <string name="business_basic_task_retry">重试</string>
+    <string name="business_basic_task_clear_done">清掉已完成</string>
+    <string name="business_basic_task_empty">一条任务都没有</string>
+    <string name="business_basic_task_failed">加载失败</string>
 </resources>
