@@ -2,21 +2,37 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-      component_business_basic（示例业务层）
-      这里放的是"任务列表"这一个示例的两种写法，你要写自己的页面时照抄它们即可：
-      - TaskActivity        ：XML 版（BaseActivity 承载 BaseFragment，列表在 Fragment 里）
-      - TaskComposeActivity ：Compose 版
-      两者共用同一个 TaskViewModel 和同一份 TaskContract。
+      component_business_basic（示例页面）
+      四个示例页面，形态和场景都不一样，写自己的页面时挑最像的那个照抄：
+
+      - ListActivity   ：XML + Fragment + RecyclerView + 下拉刷新 + 分页 + 长按删除
+      - LoginActivity  ：XML + 输入框 + 边输边校验 + 防重复提交
+      - SearchActivity ：Compose + 输入防抖
+      - DetailActivity ：Compose + 带参数进来 + 把结果带回上一页
+
+      四个页面共用同一套写法（状态 + 操作），也共用同一份假数据源。
     -->
     <application>
 
         <activity
-            android:name="com.tscaffold.component.business.basic.ui.task.view.TaskActivity"
+            android:name="com.tscaffold.component.business.basic.ui.list.view.ListActivity"
             android:exported="false"
             android:theme="@style/business_basic_theme" />
 
         <activity
-            android:name="com.tscaffold.component.business.basic.ui.task.compose.TaskComposeActivity"
+            android:name="com.tscaffold.component.business.basic.ui.login.view.LoginActivity"
+            android:exported="false"
+            android:theme="@style/business_basic_theme"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name="com.tscaffold.component.business.basic.ui.search.compose.SearchActivity"
+            android:exported="false"
+            android:theme="@style/business_basic_theme"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name="com.tscaffold.component.business.basic.ui.detail.compose.DetailActivity"
             android:exported="false"
             android:theme="@style/business_basic_theme" />
 

@@ -13,6 +13,8 @@ appcompat = "1.8.0"
 fragment = "1.9.0"
 lifecycle = "2.11.0"
 activity = "1.13.0"
+recyclerview = "1.4.0"
+swiperefreshlayout = "1.2.0"
 # Compose（版本由 BOM 统一决定，下面的 compose 库都不用写版本号）
 composeBom = "2026.09.00"
 # 协程（现在还没用到，加 Retrofit 时要用，先放在这）
@@ -32,6 +34,8 @@ androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifec
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activity" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
+androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
+androidx-swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
 # --- Compose（BOM 统一版本）---
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime" }

@@ -38,6 +38,8 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.ktx)       // by viewModels()
     implementation(libs.androidx.activity.compose)   // setContent { }
+    implementation(libs.androidx.recyclerview)       // 列表页用的列表控件
+    implementation(libs.androidx.swiperefreshlayout) // 列表页用的下拉刷新
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

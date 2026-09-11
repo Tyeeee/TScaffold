@@ -17,15 +17,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.tscaffold.component.business.basic.ui.task.compose.TaskComposeActivity
-import com.tscaffold.component.business.basic.ui.task.view.TaskActivity
+import com.tscaffold.component.business.basic.ui.list.view.ListActivity
+import com.tscaffold.component.business.basic.ui.login.view.LoginActivity
+import com.tscaffold.component.business.basic.ui.search.compose.SearchActivity
 import com.tscaffold.ui.theme.TScaffoldTheme
 
 /**
- * 应用首页。
+ * 应用首页：四个示例页面的入口。
  *
- * 它只做一件事：放两个按钮，分别打开"任务列表"示例的两种写法。
- * 等你写好自己的页面，把这两个按钮换成你自己的入口就行。
+ * 四个页面分别对应不同的形态和场景，写自己的页面时挑最像的那个照抄：
+ * 列表页（RecyclerView + 分页）、登录表单（输入校验）、搜索（Compose + 防抖）、
+ * 详情（带参数进来 + 把结果带回去）。
  */
 class MainActivity : ComponentActivity() {
 
@@ -36,9 +38,10 @@ class MainActivity : ComponentActivity() {
             TScaffoldTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     HomeScreen(
-                        onOpenXmlPage = { TaskActivity.start(this) },
-                        onOpenComposePage = { TaskComposeActivity.start(this) },
                         modifier = Modifier.padding(innerPadding),
+                        onList = { ListActivity.start(this) },
+                        onLogin = { LoginActivity.start(this) },
+                        onSearch = { SearchActivity.start(this) },
                     )
                 }
             }
@@ -48,8 +51,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun HomeScreen(
-    onOpenXmlPage: () -> Unit,
-    onOpenComposePage: () -> Unit,
+    onList: () -> Unit,
+    onLogin: () -> Unit,
+    onSearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -59,30 +63,39 @@ private fun HomeScreen(
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = "TScaffold · MVI 骨架",
-            style = MaterialTheme.typography.headlineMedium,
+            text = "TScaffold · 四个示例页面",
+            style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.padding(bottom = 8.dp),
         )
         Text(
-            text = "下面两个入口打开的是同一个「任务列表」示例，逻辑一模一样，只有界面写法不同。",
+            text = "四页用的是同一套写法，形态和场景各不相同。详情页从列表或搜索里点进去。",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(bottom = 24.dp),
         )
 
         Button(
-            onClick = onOpenXmlPage,
+            onClick = onList,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 12.dp),
         ) {
-            Text("示例一：XML 写的（Activity + Fragment）")
+            Text("列表页：下拉刷新 / 分页 / 长按删除")
         }
 
         Button(
-            onClick = onOpenComposePage,
+            onClick = onLogin,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+        ) {
+            Text("表单页：边输边校验 / 防重复提交")
+        }
+
+        Button(
+            onClick = onSearch,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("示例二：Compose 写的")
+            Text("搜索页：输入防抖（Compose）")
         }
     }
 }
@@ -91,6 +104,6 @@ private fun HomeScreen(
 @Composable
 private fun HomeScreenPreview() {
     TScaffoldTheme {
-        HomeScreen(onOpenXmlPage = {}, onOpenComposePage = {})
+        HomeScreen(onList = {}, onLogin = {}, onSearch = {})
     }
 }

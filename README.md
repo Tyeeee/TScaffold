@@ -3,7 +3,7 @@
 一句话说明白：**这是一个只保留 UI 状态和用户操作这一套写法的安卓工程。**
 
 没有网络请求、没有图片加载、没有弹窗控件库、没有工具类大礼包——那些都清掉了。
-留下的是一套官方推荐的写法，外加**一个能从取数据一路跑到界面的完整示例**。
+留下的是一套官方推荐的写法，外加**四个形态各异的示例页面**（RecyclerView 分页列表、输入表单、Compose 搜索、带参数的详情页）。
 你自己做的组件，后面往预留的位置里填就行。
 
 ---
@@ -72,30 +72,44 @@ app  →  component_business_basic  →  component_common  →  component_basic
 | `ui/fragment/BaseFragment.kt` | 同上，Fragment 版 |
 | `ui/compose/MviCompose.kt` | 用 Compose 写页面时的小工具：`observeState()` |
 
-### component_business_basic（示例，6 个源码文件 + 3 个布局）
+### component_business_basic（四个示例页面，17 个源码文件 + 5 个布局）
 
-"任务列表"这一个示例，用两种界面写法各做了一遍，**共用同一份逻辑**：
+**四个页面形态、控件、场景都不一样**，写自己的页面时挑最像的那个照抄：
+
+| 页面 | 形态 | 用到的控件 | 覆盖的场景 |
+|---|---|---|---|
+| `ui/list` | Activity + Fragment（XML） | RecyclerView、SwipeRefreshLayout、多类型 item（底部加载态） | 首次加载、下拉刷新、上滑分页、**加载更多失败后点重试**、空列表、长按删除确认、点进详情 |
+| `ui/login` | Activity（XML） | EditText、错误提示、按钮禁用 | 边输边校验、提交中禁止重复点、账号密码错误提示、成功后跳页 |
+| `ui/search` | Compose | TextField、LazyColumn | **输入防抖**（打字不发请求、停下 300 毫秒才搜）、无结果空态、清空 |
+| `ui/detail` | Compose | 参数进入、返回结果 | 带 id 进来加载、加载失败重试、删除后**把结果回传给上一页** |
+
+四个页面共用同一份假数据（`data/ArticleRepository.kt`），也共用同一套写法。
 
 | 文件 | 作用 |
 |---|---|
-| `ui/task/contract/TaskContract.kt` | 这个页面的状态 / 操作 |
-| `ui/task/data/TaskRepository.kt` | 数据从哪来。**现在是假数据源**，加 Retrofit 时换这里 |
-| `ui/task/viewmodel/TaskViewModel.kt` | 这个页面的全部逻辑 |
-| `ui/task/view/TaskActivity.kt` | **XML 版**：`BaseActivity`，顶部统计 + 承担"弹提示"，并承载下面的 Fragment |
-| `ui/task/view/TaskFragment.kt` | **XML 版**：`BaseFragment`，列表本体 + 各按钮 |
-| `ui/task/compose/TaskComposeActivity.kt` | **Compose 版**：同样一份逻辑，换成 Compose 画界面 |
+| `data/ArticleSource.kt` | 数据来源的**接口**：页面只认它，以后换 Retrofit 实现同一个接口即可 |
+| `data/ArticleRepository.kt` | 假数据实现：会等一会儿、**每第 3 次请求故意失败一次**（不然失败/重试没得测） |
+| `data/AccountRepository.kt` | 假登录：账号 `admin`、密码 `123456` |
+| `ui/*/contract/*Contract.kt` | 每个页面的状态和操作 |
+| `ui/*/viewmodel/*ViewModel.kt` | 每个页面的全部逻辑 |
+| `ui/*/view/` `ui/*/compose/` | 每个页面的界面 |
 
-> 注意：XML 版里 Activity 和 Fragment **共用同一个 ViewModel**（Activity 用 `by viewModels()` 建，Fragment 用 `by activityViewModels()` 拿），
-> 所以顶部的"已完成 x / y"和下面列表永远是同一份数据。
-> 而"弹提示"只由 Activity 一处负责——两处都做的话，一句话会被弹两次。
+> 两个细节值得注意：
+> - 列表页里 Activity 和 Fragment **共用同一个 ViewModel**（Activity 用 `by viewModels()` 建，Fragment 用 `by activityViewModels()` 拿），
+>   所以两者永远显示同一份数据；
+> - **"只做一次"的动作只在 Activity 一处处理**（弹提示、弹确认框、打开详情页）。
+>   两处都做的话会被抢着做，出现"有时候弹有时候不弹"。
 
 ### 测试（在电脑上跑，不用模拟器）
 
 | 文件 | 作用 |
 |---|---|
-| `component_common/src/test/.../BaseViewModelTest.kt` | 盯住基类本身的行为（5 个用例） |
-| `component_business_basic/src/test/.../TaskViewModelTest.kt` | 盯住示例的数据流（8 个用例） |
+| `component_common/src/test/.../BaseViewModelTest.kt` | 基类本身的行为（7 个用例） |
+| `component_business_basic/src/test/.../ListViewModelTest.kt` | 列表页的分页/失败/刷新/删除逻辑（8 个用例） |
+| `component_business_basic/src/test/.../SearchViewModelTest.kt` | 搜索页的防抖逻辑（4 个用例） |
 
+> 说明：**这些测试不是交付证据，真机点一遍才算**。它们的用处是补上"真机上不容易看清"的地方，
+> 比如"打字时到底发了几次请求"。
 ### app（应用外壳）
 
 | 文件 | 作用 |
@@ -113,36 +127,46 @@ app  →  component_business_basic  →  component_common  →  component_basic
 
 ---
 
-## 三、数据流是怎么跑一圈的（对着示例看）
+## 三、数据流是怎么跑一圈的（对着列表页看）
 
-拿"点一下重新加载"举例，数据是这样走完一圈的：
+拿列表页"上滑加载下一页，结果失败了，点重试"举例：
 
 | 步骤 | 发生什么 | 在哪个文件 |
 |---|---|---|
-| ① | 按钮被点 → 只上报"用户想重新加载" | `TaskActivity.kt` / `TaskFragment.kt` 里的 `setIntent(...)` |
-| ② | 收到操作 → 先把状态改成"加载中" | `TaskViewModel.handleIntent` → `load()` 里的 `setState` |
-| ③ | 界面立刻显示转圈，因为状态变了 | `TaskFragment.render()` |
-| ④ | 去取数据（现在是假数据源，等 800 毫秒） | `TaskRepository.loadTasks()` |
-| ⑤ | 拿到了 → 把数据写进状态，界面自动变成列表 | `TaskViewModel.load()` 的 `setState` |
-| ⑤' | 出错了 → 把错误信息和一句提示写进状态，界面自动显示错误 + "重试" | 同上，走 `catch` 分支 |
-| ⑥ | 状态里有了"要提示的话"，界面弹一次 | `TaskActivity.showMessageOnce()` |
-| ⑦ | 弹完回报 `MessageShown`，ViewModel 把那句话清掉 | 回到 `TaskViewModel.handleIntent` |
+| ① | 快滑到底 → 只上报"用户想看下一页" | `ListFragment` 的滚动监听 → `setIntent(LoadMore)` |
+| ② | 收到操作 → 把底部那一行改成"加载中"（**不清空已有数据**） | `ListViewModel.handleIntent` → `setState` |
+| ③ | 底部显示转圈，列表内容照旧 | `ListFragment.render()` + `ListAdapter` 的底部行 |
+| ④ | 去取下一页（假数据源等 800 毫秒，**并在这个节骨眼上故意失败**） | `ArticleRepository.loadPage()` |
+| ⑤ | 失败 → 只把底部那一行改成"加载更多失败，点我重试" | `ListViewModel.loadMore()` 的 `catch` |
+| ⑥ | 用户点底部那一行 → 再上报一次 | `ListFragment` 的 `onFooterClick` |
+| ⑦ | 这次成功 → 把新数据拼到后面，底部恢复 | `setState` → `ListAdapter` 用 DiffUtil 只重画变化的那几行 |
 
-### 你可以自己点一遍验证（都是实测过的）
+整页的状态（首次加载转圈、下拉刷新、空列表、整页失败）和底部那一行的状态是**分开表达**的，
+所以"某一页加载失败"不会把用户已经看到的列表清掉 —— 这是列表页最容易做错的地方，示例里专门处理了。
 
-1. 打开首页 → 点"示例一：XML 写的（Activity + Fragment）"
-   → 先看到转圈，然后出现 4 条任务，顶部显示"已完成 1 / 4"，并弹一句"加载完成，共 4 条"。
-2. 勾掉某一条 → 顶部统计立刻跟着变（**这就是 Activity 和 Fragment 共用同一份状态**）。
-3. 点"清掉已完成" → 已完成的那几条从列表消失，顶部统计同步变化。
-4. 连点两次"重新加载" → 第一次条数变多；**第二次会故意失败**（假数据源里写死了每第 3 次报错），
-   界面出现红色的错误说明和"重试"按钮，同时弹一句提示。
-5. 点"重试" → 恢复正常，列表又出来了。这就是"失败之后要能自己恢复"。
-6. 回首页 → 点"示例二：Compose 写的" → 同样的数据和同样的行为，只是界面换成了 Compose。
+### 其余三页各自演示的点
 
-> 那个"每第 3 次故意报错"是特意加的：不然出错这条分支你没法验证，
-> 等接了真网络以后这种错天天会碰到，先在这儿把处理写好。
+| 页面 | 场景 | 关键做法 |
+|---|---|---|
+| 登录表单 | 边输边校验、防重复提交 | 错误提示和"能不能点提交"都是**算出来的**（`usernameError`、`canSubmit`），不另存一份 |
+| 登录表单 | 登录成功跳页 | 不直接跳，而是把 `loggedIn` 写进状态，界面看到才跳；并且只跳一次 |
+| 搜索页 | 输入防抖 | ViewModel 里持有一个"等待中的搜索任务"，新输入来了先取消它，停 300 毫秒才真发请求 |
+| 详情页 | 参数进来 | 界面从 Intent 取出 id，作为一次**操作**报给 ViewModel（`setIntent(Load(id))`），ViewModel 不读启动参数 |
+| 详情页 | 结果回去 | 删除成功后状态里 `deleted = true`，界面看到才带结果关掉自己；列表页收到结果把那条也去掉 |
 
----
+### 你可以自己点一遍验证（都是实机点过的）
+
+1. 首页 → **列表页**：先转圈，然后出现 10 条；往下滑会加载第 2 页。
+2. **故意失败**：继续滑，第 3 次请求会失败，底部出现"加载更多失败，点我重试"，**列表没有被清空**；点它就能接着加载。
+3. **下拉刷新**：转圈在顶部；如果这次请求正好失败，列表保留旧数据，只弹一句"刷新失败"。
+4. **长按某一条** → 弹确认框 → 删除 → 那一条从列表消失。
+5. **点某一条** → 进详情页（带 id 进来）→ 点"删除这条" → 自动回到列表，且列表里也没了。
+6. 首页 → **表单页**：账号输 `ab` 会立刻提示"账号至少 3 个字符"，按钮是灰的；
+   补到 `abc` / `123456` 按钮才亮；用 `abc` 登录会失败并提示；改成 `admin` / `123456` 就能登进去，并跳到列表页。
+7. 首页 → **搜索页**：打字过程中不发请求（可以看 Logcat 的 `MVI` 日志验证），停下才搜；
+   搜不到会显示"没搜到…"；点结果进详情页。
+
+> 失败是**特意**造的（假数据源里写死了每第 3 次请求失败）。不然"失败 / 重试"这条最常见的分支根本没法验证。
 
 ## 四、和安卓官方文档的对照
 
@@ -273,31 +297,33 @@ abstract class BaseViewModel<State : UiState, Intent : UiIntent> : ViewModel() {
 拿"清掉已完成"举例，逻辑就这么点：
 
 ```kotlin
-override fun handleIntent(intent: TaskContract.Intent) {
+override fun handleIntent(intent: ListContract.Intent) {
     when (intent) {
-        TaskContract.Intent.ClearDone -> clearDone()
-        TaskContract.Intent.MessageShown -> setState { copy(message = null) }  // 界面弹完了，清掉
+        ListContract.Intent.ConfirmDelete -> confirmDelete()
+        ListContract.Intent.MessageShown -> setState { copy(message = null) }  // 界面弹完了，清掉
         // ...
     }
 }
 
-private fun clearDone() {
+private fun confirmDelete() {
+    val id = uiState.value.pendingDeleteId ?: return
     setState {
         copy(
-            tasks = tasks.filterNot { it.done },
-            message = "清掉了 $doneCount 条已完成的",   // 要提示的话，写进状态
+            pendingDeleteId = null,
+            message = "正在删除…",            // 要提示的话，也写进状态
         )
     }
+    // …后面交给仓库去删
 }
 ```
 
 ### 怎么写一个自己的页面（XML 版）
 
-**第 1 步**：抄一份 `TaskContract.kt`，改成你这一页的状态和操作。
+**第 1 步**：抄一份 `ListContract.kt`（或 `LoginContract.kt`），改成你这一页的状态和操作。
 
-**第 2 步**：抄 `TaskViewModel.kt`，实现 `initializeState()` 和 `handleIntent()`，逻辑全写这儿。
+**第 2 步**：抄 `ListViewModel.kt`，实现 `initializeState()` 和 `handleIntent()`，逻辑全写这儿。
 
-**第 3 步**：抄 `TaskActivity.kt`（和 `TaskFragment.kt`，如果想把列表拆出来）：
+**第 3 步**：抄 `ListActivity.kt`（和 `ListFragment.kt`，如果想把列表拆出来）：
 
 ```kotlin
 class YourActivity :
@@ -366,7 +392,7 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 
 ## 六、单元测试
 
-15 个测试，全跑在电脑上，不用模拟器，一秒多就跑完：
+19 个测试，全跑在电脑上，不用模拟器，一秒多就跑完：
 
 ```bash
 ./gradlew test
@@ -375,7 +401,8 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 | 测试文件 | 个数 | 盯住什么 |
 |---|---:|---|
 | `BaseViewModelTest` | 7 | 基类本身的行为：初始状态能不能用子类构造参数、上报的操作会不会被收到、**连点两下同一个操作会不会被吞掉**、状态是不是"换一份新的"、提示回报之后会不会被清掉、界面中途才订阅能不能立刻拿到当前值、**打开调试日志后能不能打出操作和状态** |
-| `TaskViewModelTest` | 8 | 示例的数据流：进页面自动加载、加载中的中间状态、加载完成留下提示、连着三次加载第三次失败、失败后重试能恢复、勾选只动一条、清空只动已完成那几条、没有已完成时只多一句提示不改数据 |
+| `ListViewModelTest` | 8 | 列表页的分页逻辑：自动加载第一页、第一页失败、**加载更多失败不清空已有数据**、失败后点重试能接着加载、刷新失败保留旧数据、加载中再点不重复请求、点条目会记下要看哪个详情、从详情页删掉的那条列表也要去掉 |
+| `SearchViewModelTest` | 4 | 搜索页的防抖：连着打字只搜最后那一次、停下超过 300 毫秒才真搜、清空不触发搜索、空关键字不搜 |
 
 仓库里那个"等 800 毫秒"在测试里是**虚拟时间**，不用真等；这也正是"逻辑都收在 ViewModel 里"的好处 ——
 不用模拟器就能把每条分支都验一遍。
@@ -401,6 +428,8 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 | fragment-ktx | 1.9.0 | `activityViewModels()` 来自它 |
 | lifecycle（runtime / viewmodel / compose） | 2.11.0 | `LifecycleResumeEffect`、`collectAsStateWithLifecycle` 都在这 |
 | activity（ktx / compose） | 1.13.0 | |
+| recyclerview | 1.4.0 | 列表页的列表控件 |
+| swiperefreshlayout | 1.2.0 | 列表页的下拉刷新 |
 | Compose BOM | 2026.09.00 | 所有 Compose 库的版本由它统一决定 |
 | kotlinx-coroutines（android / test） | 1.11.0 | test 那个是单元测试用的 |
 | junit | 4.13.2 | 单元测试框架 |
@@ -412,7 +441,7 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 ## 八、怎么编译和运行
 
 ```bash
-./gradlew test                    # 15 个单元测试，跑在电脑上，不用模拟器
+./gradlew test                    # 19 个单元测试，跑在电脑上，不用模拟器
 ./gradlew :app:assembleDebug      # 产出：app/build/outputs/apk/debug/app-debug.apk
 
 # 装到设备上
@@ -431,14 +460,16 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## 九、下一步：加 Retrofit
 
-现在的数据是 `TaskRepository` 里的假数据。加 Retrofit 时**只需要动这一层**：
+现在的数据是 `ArticleRepository` 里的假数据。加 Retrofit 时**只需要动这一层**：
 
 1. `gradle/libs.versions.toml` 里加上 Retrofit、OkHttp、Gson 的最新版本，在 `component_basic` 里声明依赖；
 2. 在 `component_basic` 里建一个网络客户端（Retrofit 实例 + 拦截器 + 日志）；
-3. 定义接口（例如 `interface TaskApi { @GET("tasks") suspend fun tasks(): List<TaskDto> }`）；
-4. 把 `TaskRepository` 改成"调接口 → 把返回的数据转成 `Task`"，方法名保持 `loadTasks()` 不变。
+3. 定义接口（例如 `interface ArticleApi { @GET("articles") suspend fun page(@Query("page") page: Int): List<ArticleDto> }`）；
+4. 写一个新的实现类 `ArticleRemoteSource : ArticleSource`，把接口返回的数据转成 `Article`；
+   然后把各个 ViewModel 的默认参数从 `ArticleRepository` 换成它。
 
-这样 **Contract、ViewModel、三份界面一行都不用改** —— 这就是把"取数据"单独放一层的意义。
+这样 **Contract、ViewModel、四个页面的界面一行都不用改** —— 这就是把"取数据"抽成接口的意义。
+（`ArticleSource` 这个接口就是为了这一步准备的；写测试时也可以塞一个假实现进去。）
 
 顺带一提：官方还建议 ViewModel 的依赖走构造参数注入（现在是给了个默认值图省事），
 等依赖多起来（网络、存储、日志）再考虑加一个手动依赖容器或 Hilt。
@@ -449,27 +480,41 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 | 你要加的东西 | 放哪儿 |
 |---|---|
-| 新页面（状态 / 操作 / 界面） | `component_business_basic`，照抄 `ui/task` 的结构 |
+| 新页面（状态 / 操作 / 界面） | `component_business_basic`，先看下面这张表挑一个最像的照抄 |
+| 数据从哪来 | `component_business_basic/data`：实现 `ArticleSource` 那样的接口 |
 | 通用 UI 控件（弹窗、进度条、自定义 View……） | `component_common`，新建 `ui/widget` 目录 |
 | 网络、本地存储、日志、工具类 | `component_basic` |
 | 应用启动时要做的初始化 | `component_basic` 的 `BasicApplication.onCreate()`（本 App 自己的初始化写在 `app` 的 `App.kt`） |
 | 新增第三方库 | 只改 `gradle/libs.versions.toml`，然后在对应模块 `build.gradle.kts` 里引用 |
 
+**挑一个最像的抄**：
+
+| 你要做的页面 | 照抄 |
+|---|---|
+| 列表 / 分页 / 下拉刷新 / 滑动加载 | `ui/list` |
+| 输入表单 / 校验 / 提交按钮 | `ui/login` |
+| 搜索 / 输入防抖 | `ui/search` |
+| 详情 / 带参数进来 / 返回结果给上一页 | `ui/detail` |
+
 **调试小技巧**：页面行为不对时，先看 Logcat（过滤 `MVI`）。
-每个操作、每次状态变化都会打出来，一眼能看出是"操作没上报"还是"状态算错了"，
-例如：
+每个操作、每次状态变化都会打出来，一眼能看出是"操作没上报"还是"状态算错了"：
 
 ```
-【TaskViewModel】收到操作: Refresh
-【TaskViewModel】状态: State(tasks=[...], loadStatus=Loading, ...) -> State(tasks=[...], loadStatus=Success, ...)
+【ListViewModel】收到操作: LoadMore
+【ListViewModel】状态: State(articles=[…20 条…], page=2, moreStatus=Loading, …) -> State(… moreStatus=Failed …)
 ```
 
-**几个注意点**
+**几个注意点（都是从实机验证里踩出来的）**
 
 1. 用 XML 写页面时，Activity 必须挂一个 AppCompat 主题（示例用的是 `business_basic_theme`），否则打开就闪退。
 2. 新模块的资源名记得加前缀（示例模块用的是 `business_basic_`），免得以后模块多了资源重名打架。
 3. 界面里不要写业务判断，全部塞进 `handleIntent`；要提示的话写进状态，不要自己造一条"发事件"的通道。
-4. 能从别的字段算出来的，别再在状态里存一份（示例里 `loading`、`total`、`doneCount` 都是现算的）。
-5. 示例里的列表是"清空重建"的写法，为的是让人一眼看懂；条数多了要换成 RecyclerView（那属于你自己要做的组件）。
-6. 打调试日志时注意两条：别打敏感数据（token、手机号）；正式包里别一直开着。
-7. 名字都统一成 TScaffold 了：`rootProject.name`、`app` 的 `applicationId` 与 `namespace`、各模块 `namespace`、包名 `com.tscaffold`、应用显示名 `app_name`、Compose 主题 `TScaffoldTheme`、XML 主题 `Theme.TScaffold`。以后换正式名字，按这几处一次替掉即可。
+4. 能从别的字段算出来的，别再在状态里存一份（示例里 `loading`、`total`、`doneCount`、`canSubmit` 都是现算的）。
+5. **"只做一次"的动作只在一处处理**：弹提示、弹确认框、跳页面都放在 Activity 里，做完回报一句把状态清掉。
+   登录页那个"成功后跳转"就踩过坑 —— 状态会多次发射，写成"只要 loggedIn 为真就跳"会**开出两个一样的页面**；
+   要么加个"已经跳过了"的标记，要么像列表页那样用"状态里的 id + 回报清掉"的写法。
+6. 列表页那个"加载更多失败"专门处理过：**失败不能把已有数据清掉**，只改底部那一行的状态。
+7. 删除这种不可逆的确认框，记得 `setCanceledOnTouchOutside(false)`，手指滑到框外不该把框关掉。
+8. 打调试日志时注意两条：别打敏感数据（token、手机号）；正式包里别一直开着。
+9. 示例里的列表用的是 RecyclerView + DiffUtil（状态变了只重画变化的行）；条数少、图省事的场景也可以直接铺 View。
+10. 名字都统一成 TScaffold 了：`rootProject.name`、`app` 的 `applicationId` 与 `namespace`、各模块 `namespace`、包名 `com.tscaffold`、应用显示名 `app_name`、Compose 主题 `TScaffoldTheme`、XML 主题 `Theme.TScaffold`。以后换正式名字，按这几处一次替掉即可。
