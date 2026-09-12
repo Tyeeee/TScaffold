@@ -2,6 +2,7 @@ package com.tscaffold
 
 import android.util.Log
 import com.tscaffold.base.BasicApplication
+import com.tscaffold.base.network.Network
 import com.tscaffold.core.ui.viewmodel.MviLog
 
 /**
@@ -20,5 +21,14 @@ class App : BasicApplication() {
         super.onCreate()
 
         MviLog.printer = { message -> Log.d("MVI", message) }
+
+        // 网络底座**唯一**的初始化入口：HTTP 接口地址、WebSocket 心跳、日志开关都在这一处。
+        // 业务层不碰 OkHttpClient / Retrofit，只写协议配套文件、调底座的 API。
+        Network.init(
+            // baseUrl = "https://your.host/api/",   // 接真后端时填这里（必须以 / 结尾）
+            webSocketPingIntervalMillis = 20_000,
+            logEnabled = true,
+            logger = { message -> Log.d("HTTP", message) },
+        )
     }
 }
