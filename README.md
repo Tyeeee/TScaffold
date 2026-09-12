@@ -48,32 +48,44 @@
 
 ```
 TScaffold
-├── app                       应用外壳：只有一个首页，三个按钮进示例
-├── component_business_basic   ★ 你以后写页面的地方（现在是四个示例页面）
-├── component_common           ★ 这套写法的核心（全部家当都在这）
-└── component_basic            最底层，留给你放基础能力（现在几乎是空的）
+├── app                       ★ 最上层：应用本体（首页 + 示例页面 + 数据层）
+├── component_business_basic  业务基础页面（登录页在这里）
+├── component_basic           基础能力：网络底座 / MMKV 封装 / Application / 通用扩展
+└── component_common          ★ 最底层：MVI 核心（全部家当都在这）
 ```
 
-依赖方向是一层压一层，上面的能用下面的，下面的不能反过来用上面的：
+依赖方向是一层压一层，上面的能用下面的，下面的**不能**反过来用上面的：
 
 ```
-app  →  component_business_basic  →  component_common  →  component_basic
-（外壳）      （你的页面）            （核心写法）        （基础能力）
+app  →  component_business_basic  →  component_basic  →  component_common
+（应用本体）    （业务基础页面）        （基础能力）      （MVI 核心，最底）
 ```
 
-> **模块名保持 `component_*` 不动，这次只改了模块内部的包名。**
-> 模块名是 Gradle 的模块标识（`component_common`），包名是代码里的
-> `package` / `android.namespace`。模块名不动，包名把多余的 `component` 去掉：
+> ⚠️ **这个方向 2026-09-12 修正过，之前是反的。**
+> 原先写成 `component_common → component_basic`（MVI 核心反过来依赖网络层），
+> 纯粹是为了"顺带转发依赖"，代码上一处都没用到（实测两个模块互相 0 处 import）。
+> 现在各层自己声明自己要的库，`component_common` 没有任何 project 依赖。
+
+> **模块名与包名一一对应。** 2026-09-12 统一过：以前模块叫 `component_basic`、包却叫
+> `com.tscaffold.base`，同一个东西两个名字 —— 看模块找不到包、看包找不到模块。
+> 现在规则很简单：`component_X` → `com.tscaffold.X`。
 >
 > | 模块（Gradle） | 包名（namespace / package） |
 > |---|---|
-> | `component_common` | `com.tscaffold.core` |
-> | `component_basic` | `com.tscaffold.base` |
-> | `component_business_basic` | `com.tscaffold.feature` |
+> | `app` | `com.demo.tscaffold` |
+> | `component_common` | `com.tscaffold.common` |
+> | `component_basic` | `com.tscaffold.basic` |
+> | `component_business_basic` | `com.tscaffold.business.basic` |
 >
-> 资源前缀、布局名、主题名这些是从**模块名**派生的，一律保持原样（`business_basic_*`）。
+> ⚠️ **`app` 用的是 `com.demo.tscaffold`，跟库模块不同前缀。** 所以在 `app` 里
+> **千万别对 `com.tscaffold` 做全局替换** —— 那会把 `com.tscaffold.basic.*` /
+> `com.tscaffold.common.*` 这些库引用一起改坏（app 确实在用它们）。
+>
+> 资源前缀、布局名、主题名这些是从**模块名**派生的。注意：示例页面的资源搬进 `app` 时
+> **去掉了 `business_basic_` 前缀**（`app` 没有资源前缀）；而登录页留在/回到了
+> `component_business_basic`，它的资源仍然带 `business_basic_` 前缀（模块配了 `resourcePrefix`）。
 
-### component_common（核心，一共 6 个文件）
+### component_common（最底层：MVI 核心，一共 6 个文件）
 
 | 文件 | 作用 |
 |---|---|
@@ -84,27 +96,85 @@ app  →  component_business_basic  →  component_common  →  component_basic
 | `ui/fragment/BaseFragment.kt` | 同上，Fragment 版 |
 | `ui/compose/MviCompose.kt` | 用 Compose 写页面时的小工具：`observeState()` |
 
-### component_business_basic（四个示例页面，17 个源码文件 + 5 个布局）
+### component_business_basic（业务基础页面）
 
-**四个页面形态、控件、场景都不一样**，写自己的页面时挑最像的那个照抄：
+**定位**：放**业务相关的基础页面** —— 登录页、错误页 / 空态页、权限引导页这类
+**需要被多个业务复用**的公共页面。各业务模块依赖它，不用各写一份。
+
+> 别和"按业务纵向拆分模块"混了 —— 那是另一个维度。这里放的是**横向复用**的公共页面。
+
+**目前有：登录页。** 结构（每个基础页面自成一个子树，方便再加第二个）：
+
+```
+com.tscaffold.business.basic
+└── login/
+    ├── contract/LoginContract.kt      状态和操作（校验规则、"能不能提交"都是算出来的）
+    ├── viewmodel/LoginViewModel.kt    逻辑；依赖 AccountSource 接口，默认给假实现
+    ├── view/LoginActivity.kt          界面
+    └── data/
+        ├── AccountSource.kt           ★ 账号数据的**接口** —— 业务侧换成真实现即可
+        └── FakeAccountSource.kt       默认假实现（admin / 123456），所以这页能独立跑
+```
+
+**两个设计要点**（都是"可复用"逼出来的，不是过度设计）：
+
+1. **它不知道下一个页面是谁。** 登录成功只 `setResult(RESULT_OK)` + `finish()`，
+   去哪由调用方决定。这不是讲究 —— 它是 library，**压根不能依赖 app 里的页面**
+   （依赖方向是 app → 模块，反过来编译不过）。
+2. **它不依赖任何具体的账号实现**，只认 `AccountSource`。
+   业务侧要接真后端：实现 `AccountSource`，然后用 `LoginViewModel.factory(...)` 注入，
+   这个模块一行都不用改。
+
+调用方的用法（`MainActivity` 里就是这么写的）：
+
+```kotlin
+val launcher = rememberLauncherForActivityResult(StartActivityForResult()) { result ->
+    if (result.resultCode == Activity.RESULT_OK) { /* 登录成功，自己决定去哪 */ }
+}
+launcher.launch(LoginActivity.intent(context))
+```
+
+**换文案 / 换主题不用改这个模块**：在自己的 `res/values/` 里用同名 key 覆盖即可
+（`business_basic_login_*`、`business_basic_theme`），Android 的资源合并规则是 app 覆盖 library。
+
+模块依赖已经配齐（viewBinding、compose、appcompat、recyclerview、swiperefreshlayout）。
+
+### app（应用本体：首页 + 三个示例页面 + 数据层）
+
+> **页面归属**：列表页、搜索页、详情页在 `app`；
+> **登录页在 `component_business_basic`**（业务基础页面模块），上面那一节有说明。
+
+**三个页面形态、控件、场景都不一样**，写自己的页面时挑最像的那个照抄：
 
 | 页面 | 形态 | 用到的控件 | 覆盖的场景 |
 |---|---|---|---|
 | `ui/list` | Activity + Fragment（XML） | RecyclerView、SwipeRefreshLayout、多类型 item（底部加载态） | 首次加载、下拉刷新、上滑分页、**加载更多失败后点重试**、空列表、长按删除确认、点进详情 |
-| `ui/login` | Activity（XML） | EditText、错误提示、按钮禁用 | 边输边校验、提交中禁止重复点、账号密码错误提示、成功后跳页 |
 | `ui/search` | Compose | TextField、LazyColumn | **输入防抖**（打字不发请求、停下 300 毫秒才搜）、无结果空态、清空 |
 | `ui/detail` | Compose | 参数进入、返回结果 | 带 id 进来加载、加载失败重试、删除后**把结果回传给上一页** |
 
-四个页面共用同一份假数据（`data/ArticleRepository.kt`），也共用同一套写法。
+登录页（`component_business_basic` 里那个）覆盖的是：边输边校验、提交中禁止重复点、
+账号密码错误提示、成功后把结果回给调用方。
+
+页面共用同一份假数据（`data/article/ArticleRepository.kt`），也共用同一套写法。
 
 | 文件 | 作用 |
 |---|---|
-| `data/ArticleSource.kt` | 数据来源的**接口**：页面只认它，以后换 Retrofit 实现同一个接口即可 |
-| `data/ArticleRepository.kt` | 假数据实现：会等一会儿、**每第 3 次请求故意失败一次**（不然失败/重试没得测） |
-| `data/AccountRepository.kt` | 假登录：账号 `admin`、密码 `123456` |
+| `model/Article.kt` | **页面用的模型**（纯领域模型，跟"从哪儿取"无关）。列表/搜索/详情/数据层都用它 |
+| `data/article/ArticleSource.kt` | 数据来源的**接口**：页面只认它，以后换 Retrofit 实现同一个接口即可 |
+| `data/article/ArticleRepository.kt` | 假数据实现：会等一会儿、**每第 3 次请求故意失败一次**（不然失败/重试没得测） |
+| `data/remote/Envelope.kt` | 后端统一的响应外壳（所有接口共用），连同 `unwrap` / `unwrapOrNull` / `checkOk` 三个扩展 |
+| `data/remote/article/` | 文章那套 Retrofit 数据层：`ArticleApi` / `ArticleDto` / `ArticleRemoteSource` |
+| `data/remote/pokemontcg/` | TCGdex（宝可梦卡牌）的 Retrofit 接口与网络模型 |
 | `ui/*/contract/*Contract.kt` | 每个页面的状态和操作 |
 | `ui/*/viewmodel/*ViewModel.kt` | 每个页面的全部逻辑 |
 | `ui/*/view/` `ui/*/compose/` | 每个页面的界面 |
+
+> 结构约定：**`data/<业务>/` 放这一块业务的数据来源，`data/remote/<来源>/` 放网络实现。**
+> 2026-09-12 整理过：原先三样东西混在 `data/` 根下（领域模型 `Article` 寄居在
+> `ArticleRepository.kt` 里、登录的账号仓库和文章的仓库挤在一起、
+> 文章 API 平铺而宝可梦 API 却嵌套）。现在模型进 `model/`，
+> 两个网络来源各占 `data/remote/` 下一个子包、深度一致。
+> 登录那一套（含 `AccountSource` 接口）后来随登录页一起搬进了 `component_business_basic`。
 
 > 两个细节值得注意：
 > - 列表页里 Activity 和 Fragment **共用同一个 ViewModel**（Activity 用 `by viewModels()` 建，Fragment 用 `by activityViewModels()` 拿），
@@ -114,28 +184,38 @@ app  →  component_business_basic  →  component_common  →  component_basic
 
 ### 测试（在电脑上跑，不用模拟器）
 
-| 文件 | 作用 |
-|---|---|
-| `component_common/src/test/.../BaseViewModelTest.kt` | 基类本身的行为（7 个用例） |
-| `component_business_basic/src/test/.../ListViewModelTest.kt` | 列表页的分页/失败/刷新/删除逻辑（8 个用例） |
-| `component_business_basic/src/test/.../SearchViewModelTest.kt` | 搜索页的防抖逻辑（4 个用例） |
+122 个单元测试，分在 19 个文件里；网络和数据层那些是**真的起本地服务器、真握手、真 HTTP**。
+哪个文件盯住什么，§六 有一张完整的表。
 
 > 说明：**这些测试不是交付证据，真机点一遍才算**。它们的用处是补上"真机上不容易看清"的地方，
 > 比如"打字时到底发了几次请求"。
-### app（应用外壳）
+
+### app 的其余文件
 
 | 文件 | 作用 |
 |---|---|
 | `MainActivity.kt` | 首页，三个按钮进示例 |
-| `App.kt` | 应用启动入口，这里打开了上面那个调试日志（不想要就删掉那两行） |
+| `AppInitializer.kt` | 本 App 自己的启动初始化：打开 MVI / HTTP 调试日志、配接口地址。放在 `app/.../provider/` 下，挂在 AndroidX Startup 上，`Application` 里不写初始化 |
 | `ui/theme/*` | Compose 主题 |
 
-### component_basic
+### component_basic（基础能力）
+
+站在 `component_common` 之上、`component_business_basic` 之下。
 
 | 文件 | 作用 |
 |---|---|
-| `BasicApplication.kt` | 留给"基础能力初始化"的位置（网络、存储、日志库的初始化都写这儿） |
+| `BasicApplication.kt` | Application 基类，直接用即可。基础能力**不在这儿初始化** |
+| `provider/` | 启动初始化：现在有 `MMKVInitializer`，清单里 `androidx.startup.InitializationProvider` 的 meta-data 指向这里。一个能力一个 Initializer，能力自己的代码不往这放 |
+| `network/` | 网络底座：HTTP（OkHttp / Retrofit / 统一错误翻译）+ WebSocket |
+| `mmkv/` | MMKV 封装：写 `MMKVUtils.set(key, value)`、读 `MMKVUtils.takeXxx(key, default)`；初始化由 `MMKVInitializer` 挂在 AndroidX Startup 上，`Application` 里一行都不用写 |
 | `extensions/ViewModel.kt` | 想让多个页面共用同一份数据时用（App 级 ViewModel） |
+
+> ⚠️ **MMKV 2.x 是纯 64 位库**（AAR 里只有 `arm64-v8a`、`x86_64`），32 位设备或模拟器上加载不了。
+> 要支持 32 位就把版本降到 `mmkv 1.3.x`（那个版本有 32 位 so）。
+
+> ⚠️ **`network/websocket/` 目前没有任何调用方**（全工程只有一句注释提到它）。
+> 它约 600 行主代码 + 约 1300 行测试，是"预留能力"而不是"在用的代码"。
+> 留着还是删掉由你定 —— 见下面的说明。
 
 ---
 
@@ -258,7 +338,7 @@ app  →  component_business_basic  →  component_common  →  component_basic
 | Intent **不要用 StateFlow 存**：它自带"相同值不重复发射"，连续两次同样的操作会被悄悄吞掉 | ✅ 我们用的是 SharedFlow，并且**补了测试钉死**：连点两下同一个按钮，两次都必须被处理 |
 | 状态值完全相同时不会重复发射，所以"同样内容但要再弹一次"要特殊处理 | ✅ 我们的提示显示完立刻清空，状态必然发生变化，不会出现"第二次弹不出来" |
 | LCE / Resource：loading、success、error | ✅ 用 `LoadStatus` 枚举 + 数据字段表达（等价变体） |
-| **Improve debugging with logs**：打印收到的操作、每次状态变化；别打敏感数据；正式包别一直开着 | ✅ **这次补上了**：`MviLog` + 在 `App.kt` 里打开，Logcat 过滤 `MVI` 就是完整链路 |
+| **Improve debugging with logs**：打印收到的操作、每次状态变化；别打敏感数据；正式包别一直开着 | ✅ **这次补上了**：`MviLog` + 在 `AppInitializer` 里打开，Logcat 过滤 `MVI` 就是完整链路 |
 | 单元测试盯住"给定操作之后状态对不对"，少写仪器测试 | ✅ 15 个 ViewModel 单元测试；顺手删掉了模板生成的两个示例测试 |
 | RenderModel：**只渲染变化的部分** | ⚠️ 示例用的是"清空重建"图好读；条数多了要换成 RecyclerView，见文末注意点 |
 
@@ -365,8 +445,8 @@ class YourActivity :
 }
 ```
 
-**第 4 步**：在 `component_business_basic/src/main/AndroidManifest.xml` 里登记这个页面，
-并给它挂上 `@style/business_basic_theme`（用 XML 写页面必须挂 AppCompat 主题，否则一打开就闪退）。
+**第 4 步**：在 `app/src/main/AndroidManifest.xml` 里登记这个页面，
+并给它挂上 `@style/Theme.TScaffold.AppCompat`（用 XML 写页面必须挂 AppCompat 主题，否则一打开就闪退）。
 
 ### 怎么写一个自己的页面（Compose 版）
 
@@ -404,7 +484,7 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 
 ## 六、单元测试
 
-19 个测试，全跑在电脑上，不用模拟器，一秒多就跑完：
+**122 个用例，19 个文件**，全跑在电脑上，不用模拟器：
 
 ```bash
 ./gradlew test
@@ -412,12 +492,37 @@ private fun YourScreen(state: YourContract.State, onIntent: (YourContract.Intent
 
 | 测试文件 | 个数 | 盯住什么 |
 |---|---:|---|
-| `BaseViewModelTest` | 7 | 基类本身的行为：初始状态能不能用子类构造参数、上报的操作会不会被收到、**连点两下同一个操作会不会被吞掉**、状态是不是"换一份新的"、提示回报之后会不会被清掉、界面中途才订阅能不能立刻拿到当前值、**打开调试日志后能不能打出操作和状态** |
-| `ListViewModelTest` | 8 | 列表页的分页逻辑：自动加载第一页、第一页失败、**加载更多失败不清空已有数据**、失败后点重试能接着加载、刷新失败保留旧数据、加载中再点不重复请求、点条目会记下要看哪个详情、从详情页删掉的那条列表也要去掉 |
-| `SearchViewModelTest` | 4 | 搜索页的防抖：连着打字只搜最后那一次、停下超过 300 毫秒才真搜、清空不触发搜索、空关键字不搜 |
+| `component_common` `BaseViewModelTest` | 7 | MVI 基类的契约：初始状态能用子类构造参数、上报的操作会被收到、**连点两下同一个操作不会被吞掉**（用 SharedFlow 不是 StateFlow）、状态是换一份新的、提示回报后清掉、中途订阅能立刻拿到当前值 |
+| `component_basic` `ErrorMapperTest` | 7 | 错误翻译的确定性覆盖：断网/连接被拒 → NoNetwork、超时 → Timeout、HTTP 码 → 文案、已翻译的异常不再包一层、兜底成 Unknown |
+| `component_basic` `ApiCallTest` | 3 | `apiCall` 的边界：成功原样返回、底层异常翻译成 ApiException、**协程取消原样抛出**（页面退出靠这个信号） |
+| `component_basic` `HttpScenarioTest` | 3 | 真服务器上的基础连通：200 的真 JSON 能解析、请求真的按 baseUrl + @GET 拼路径、**换 baseUrl 后重新 create 会打到新服务器**（旧代理还打旧地址这个坑） |
+| `component_basic` `HttpNetworkConditionsScenarioTest` | 11 | 各种网络状况：4xx/5xx 的码与文案、响应体空/语法错/类型不符 → Unknown、连接被拒、回一半断连、读超时、**请求途中取消协程**、302 跟随、分块大响应 |
+| `component_basic` `HttpWeakNetworkScenarioTest` | 6 | 弱网：时快时慢且失败能自愈、限速下"只要还在传就不算超时"（readTimeout 是两次读之间的间隔）、请求发出/响应头/响应体三个阶段被断连，以及同端口恢复后自愈 |
+| `component_basic` `WebSocketScenarioTest` | 6 | 真握手：收文本/二进制帧、发出去的帧真到了、1011 断开后自动重连、1000 正常关闭不再重连、两个 key 两条真连接、release 后收集者能收尾 |
+| `component_basic` `WebSocketFailureScenarioTest` | 10 | 失败态：401 握手被拒重试到上限、没人监听、粗暴掐断、1001、服务端重启、重连期间发送返回 false、连接中 release、关闭后复用句柄、100 条不丢不乱序、二进制双向 |
+| `component_basic` `WebSocketFlappingScenarioTest` | 5 | **网络抖动**：反复掉线重连 5 轮、每轮之后都能继续收发、抖动期间丢帧不影响恢复、刚连上就被掐、抖完来一波突发、重试预算用光后用户重连能救回来 |
+| `component_basic` `WebSocketRetryPolicyTest` | 4 | 退避策略（纯函数）：指数增长封顶、超过次数判放弃、抖动在上下限内、非法次数直接不重连 |
+| `component_basic` `WebSocketServiceTest` | 2 | 门面的管理行为：同一个 key 复用句柄、release 之后才重建、句柄转发收发与状态 |
+| `component_basic` `WebSocketPingIntervalChangerTest` | 3 | 哨兵：钉住"OkHttp 5.5.0 上运行时改不了协议级心跳"这个事实，升级 OkHttp 后它会红，提醒回来复核那段反射 |
+| `component_business_basic` `LoginViewModelTest` | 11 | 登录页：边输边校验、两个都合法才能提交、成败分支、异常转成提示、**提交中连点两下只发一次请求**、输入一变清掉上次提示 |
+| `app` `ListViewModelTest` | 8 | 列表页逻辑：首屏/加载更多/刷新失败各自的表现、加载中不重复请求、点条目记下详情 id、从详情回来删除要同步 |
+| `app` `ListPageScenarioTest` | 6 | 列表页整页真链路：首屏、翻页追加、加载更多失败不清空已有数据、失败后重试接上、刷新失败保留旧数据、首屏失败 |
+| `app` `ListPageWeakNetworkScenarioTest` | 3 | 列表页 + 连接层抖动（自定义 Dispatcher 真掐连接）：进页面那刻抖、翻页那刻抖、连着抖好几次，都是一好就能恢复 |
+| `app` `SearchViewModelTest` | 4 | 搜索防抖：连着打字只搜最后一次、停下 300 毫秒才真搜、清空不搜、空关键字不搜 |
+| `app` `ArticleRemoteSourceScenarioTest` | 10 | 数据层真链路：拆信封 + DTO 转模型、业务码失败、HTTP 500、详情为空、空关键字一个请求都不发、搜索参数真的进了 query、删除成败 |
+| `app` `PokemonTcgApiScenarioTest` | 13 | TCGdex 那套接口的契约：默认参数不出现在 URL 上、带冒号的 query 参数编码对、路径替换、数值型枚举、没建模的字段不影响解析 |
 
-仓库里那个"等 800 毫秒"在测试里是**虚拟时间**，不用真等；这也正是"逻辑都收在 ViewModel 里"的好处 ——
-不用模拟器就能把每条分支都验一遍。
+仓库里那些"等 800 毫秒""退避 1 秒"在测试里是**虚拟时间**（`runTest`），不用真等；
+真需要真实时序的地方（网络、握手）就用真 socket。
+
+> **真实场景优先**：网络和数据层那 12 个文件都是真的起 `MockWebServer`、真握手、真 HTTP，没有假替身 ——
+> 假替身只留给两处：ViewModel 的分支逻辑（虚拟时间更划算，也不用模拟器）和 WebSocket 门面的 key/句柄管理。
+
+真机上还有一份（MMKV 只能在设备上跑，它的核是 C++ 编的 so）：
+
+```bash
+./gradlew :component_basic:connectedDebugAndroidTest
+```
 
 > 那两个加粗的用例是照着一份 MVI 资料的提醒补的：
 > "操作"如果用 StateFlow 存，它自带的"相同值不重复发射"会把连续两次同样的点击吃掉，
@@ -511,18 +616,32 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ---
 
-## 九、下一步：加 Retrofit
+## 九、接真后端
 
-现在的数据是 `ArticleRepository` 里的假数据。加 Retrofit 时**只需要动这一层**：
+网络底座已经搭好了，不用自己再拼 Retrofit。加一个新接口，照 `data/remote/article/` 那套抄，三件东西：
 
-1. `gradle/libs.versions.toml` 里加上 Retrofit、OkHttp、Gson 的最新版本，在 `component_basic` 里声明依赖；
-2. 在 `component_basic` 里建一个网络客户端（Retrofit 实例 + 拦截器 + 日志）；
-3. 定义接口（例如 `interface ArticleApi { @GET("articles") suspend fun page(@Query("page") page: Int): List<ArticleDto> }`）；
-4. 写一个新的实现类 `ArticleRemoteSource : ArticleSource`，把接口返回的数据转成 `Article`；
-   然后把各个 ViewModel 的默认参数从 `ArticleRepository` 换成它。
+1. **接口** `data/remote/<来源>/XxxApi.kt`：只写 `@GET/@POST` 和返回类型，返回类型里写着后端的统一外壳；
+2. **网络模型** `XxxDto.kt`：跟后端字段一一对应，别拿去当页面模型用；
+3. **实现** `XxxRemoteSource.kt`：实现你那一层的接口（比如 `ArticleSource`），把 DTO 转成页面模型。
 
-这样 **Contract、ViewModel、四个页面的界面一行都不用改** —— 这就是把"取数据"抽成接口的意义。
-（`ArticleSource` 这个接口就是为了这一步准备的；写测试时也可以塞一个假实现进去。）
+```kotlin
+class ArticleRemoteSource(private val api: ArticleApi = sharedArticleApi) : ArticleSource {
+    override suspend fun loadPage(page: Int): List<Article> = RetrofitService.call {
+        api.page(page, pageSize).unwrap().list.orEmpty().map { it.toArticle() }
+    }
+}
+```
+
+三件事都在这一层做完，别的层不用管：调接口（`RetrofitService.call {}` 顺手把底层异常翻成 `ApiException`）、
+拆外壳（`unwrap()` / `unwrapOrNull()` / `checkOk()`，见 `data/remote/Envelope.kt`）、转模型。
+
+出错不用自己判类型：`ApiException` 分 `NoNetwork / Timeout / Http / Business / Auth / Unknown`，
+`userMessage` 就是能给用户看的那句话，页面直接往状态里写。接口地址在 `AppInitializer` 里配一次
+（`Network.init(baseUrl = ...)`）。
+
+页面那几层一行都不用改：`ArticleSource` 这个接口就是为这件事准备的。现在三个 ViewModel 的默认参数
+还指着假数据 `ArticleRepository`，接真后端时把它们换成 `ArticleRemoteSource()` 即可
+（写测试时也可以塞个假的实现进去）。
 
 顺带一提：官方还建议 ViewModel 的依赖走构造参数注入（现在是给了个默认值图省事），
 等依赖多起来（网络、存储、日志）再考虑加一个手动依赖容器或 Hilt。
@@ -533,12 +652,16 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 | 你要加的东西 | 放哪儿 |
 |---|---|
-| 新页面（状态 / 操作 / 界面） | `component_business_basic`，先看下面这张表挑一个最像的照抄 |
-| 数据从哪来 | `component_business_basic/data`：实现 `ArticleSource` 那样的接口 |
+| 新页面（状态 / 操作 / 界面） | `app`：`app/src/main/java/com/demo/tscaffold/ui/`，先看下面这张表挑一个最像的照抄 |
+| 数据从哪来 | `app`：`app/src/main/java/com/demo/tscaffold/data/`，实现 `ArticleSource` 那样的接口 |
+| 跨业务复用的基础页面（登录页、错误页、空态页…） | `component_business_basic`：已经有一个登录页，照着它的结构加（`<页面>/{contract,viewmodel,view,data}`） |
 | 通用 UI 控件（弹窗、进度条、自定义 View……） | `component_common`，新建 `ui/widget` 目录 |
 | 网络、本地存储、日志、工具类 | `component_basic` |
-| 应用启动时要做的初始化 | `component_basic` 的 `BasicApplication.onCreate()`（本 App 自己的初始化写在 `app` 的 `App.kt`） |
+| 应用启动时要做的初始化 | **一律挂 AndroidX Startup**：在自己的 `provider` 包里写一个 `Initializer`，再去清单里 `androidx.startup.InitializationProvider` 的 meta-data 加一条（照抄 `app/.../provider/AppInitializer.kt` 或 `component_basic/.../provider/MMKVInitializer.kt`）。**不要写进 Application**，这个工程里没有那种写法 |
 | 新增第三方库 | 只改 `gradle/libs.versions.toml`，然后在对应模块 `build.gradle.kts` 里引用 |
+
+> 判断依据是**依赖方向**：谁依赖谁，谁就只能放下面。
+> `app → business → basic → common`，所以 `common` 里的东西不能引用上面任何一层的类。
 
 **挑一个最像的抄**：
 
@@ -559,8 +682,9 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 **几个注意点（都是从实机验证里踩出来的）**
 
-1. 用 XML 写页面时，Activity 必须挂一个 AppCompat 主题（示例用的是 `business_basic_theme`），否则打开就闪退。
-2. 新模块的资源名记得加前缀（示例模块用的是 `business_basic_`），免得以后模块多了资源重名打架。
+1. 用 XML 写页面时，Activity 必须挂一个 AppCompat 主题（示例用的是 `Theme.TScaffold.AppCompat`），否则打开就闪退。
+2. 资源现在都堆在 `app` 里、没有任何前缀，起名要自己注意别撞车；以后拆出独立模块时，记得在那个模块的
+   `build.gradle.kts` 里配 `resourcePrefix`。
 3. 界面里不要写业务判断，全部塞进 `handleIntent`；要提示的话写进状态，不要自己造一条"发事件"的通道。
 4. 能从别的字段算出来的，别再在状态里存一份（示例里 `loading`、`total`、`doneCount`、`canSubmit` 都是现算的）。
 5. **"只做一次"的动作只在一处处理**：弹提示、弹确认框、跳页面都放在 Activity 里，做完回报一句把状态清掉。
@@ -570,4 +694,4 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 7. 删除这种不可逆的确认框，记得 `setCanceledOnTouchOutside(false)`，手指滑到框外不该把框关掉。
 8. 打调试日志时注意两条：别打敏感数据（token、手机号）；正式包里别一直开着。
 9. 示例里的列表用的是 RecyclerView + DiffUtil（状态变了只重画变化的行）；条数少、图省事的场景也可以直接铺 View。
-10. 名字都统一成 TScaffold 了：`rootProject.name`、`app` 的 `applicationId` 与 `namespace`、各模块 `namespace`、包名 `com.tscaffold`、应用显示名 `app_name`、Compose 主题 `TScaffoldTheme`、XML 主题 `Theme.TScaffold`。模块名仍是 `component_basic` / `component_common` / `component_business_basic`（没动），包名是 `com.tscaffold.base` / `.core` / `.feature`（对照表见 §二），`component_business_basic` 的资源前缀是 `business_basic_`。以后换正式名字，按这几处一次替掉即可。
+10. 名字都统一成 TScaffold 了：`rootProject.name`、`app` 的 `applicationId` 与 `namespace`（`com.demo.tscaffold`）、各库模块 `namespace`、应用显示名 `app_name`、Compose 主题 `TScaffoldTheme`、XML 主题 `Theme.TScaffold`（示例页面的 AppCompat 主题是 `Theme.TScaffold.AppCompat`）。模块名是 `component_basic` / `component_common` / `component_business_basic`，包名一一对应为 `com.tscaffold.basic` / `.common` / `.business.basic`（对照表见 §二）。**`app` 是 `com.demo.tscaffold`，前缀和库模块不同，替换时别一把梭。**

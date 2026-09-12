@@ -2,4 +2,15 @@
 <resources>
 
     <style name="Theme.TScaffold" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!--
+      用 XML 写页面时，Activity 必须挂一个 AppCompat 主题，否则一打开就闪退。
+      Theme.TScaffold 继承的是 android:Theme.Material，不属于 AppCompat 系，所以另立一个。
+
+      （资源名从 component_business_basic 的 business_basic_theme 搬过来时去掉了模块前缀，
+        并按 app 里的点分层级习惯改成了 Theme.TScaffold.AppCompat。
+        显式写了 parent=，所以不会去隐式继承 Theme.TScaffold。）
+    -->
+    <style name="Theme.TScaffold.AppCompat" parent="Theme.AppCompat.Light.NoActionBar" />
+
 </resources>

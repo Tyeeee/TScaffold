@@ -1,10 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!--
-      base（最底层，留给你自己的基础能力）
-      现在这里什么都不需要声明。以后要加权限、服务、文件共享（FileProvider）等，
-      直接写在这个 application 标签里面即可。
+      basic（基础能力）
+      依赖了 component_basic 的模块，manifest 合并后就会带上这个 provider，
+      Application 里不用再写初始化代码。
     -->
+
+    <application>
+
+        <!--
+          AndroidX Startup：进程一起来（Application.onCreate 之前）先把基础能力初始化掉。
+          现在挂的是 MMKV 封装（MMKVUtils）。
+
+          以后再加"启动要做的事"，照着加一行 meta-data 就行：
+              <meta-data
+                  android:name="你的 Initializer 全类名"
+                  android:value="androidx.startup" />
+
+          tools:node="merge" 是给多个模块都声明这个 provider 时用的（合并而不是替换）。
+          不想让 basic 管初始化，在 app 的清单里给这个 provider 加 tools:node="remove" 即可。
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="com.tscaffold.basic.provider.MMKVInitializer"
+                android:value="androidx.startup" />
+        </provider>
+
+    </application>
 
 </manifest>

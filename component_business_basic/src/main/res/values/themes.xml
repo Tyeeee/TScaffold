@@ -2,8 +2,12 @@
 <resources>
 
     <!--
-      用 XML 写页面时，Activity 必须挂一个 AppCompat 主题，否则打开就闪退。
-      这里给示例页面用；你自己的页面可以继续用它，也可以在 app 里另外定义一个。
+      用 XML 写页面时，Activity 必须挂一个 AppCompat 主题，否则一打开就闪退。
+
+      这个主题属于本模块自己：**library 不能引用 app 里的主题**
+      （依赖方向是 app → 模块，反过来不行），所以模块要自带一个。
+
+      业务侧想换主题，在自己的 themes.xml 里用同名 key 覆盖即可。
     -->
     <style name="business_basic_theme" parent="Theme.AppCompat.Light.NoActionBar" />
 

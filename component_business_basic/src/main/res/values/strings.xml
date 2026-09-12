@@ -1,21 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 列表页 -->
-    <string name="business_basic_list_title">列表页（下拉刷新 / 分页 / 长按删除）</string>
-    <string name="business_basic_list_retry">重试</string>
-    <string name="business_basic_list_empty">一条都没有</string>
-    <string name="business_basic_list_failed">加载失败</string>
-    <string name="business_basic_list_loading_more">正在加载更多…</string>
-    <string name="business_basic_list_more_failed">加载更多失败，点我重试</string>
-    <string name="business_basic_list_no_more">没有更多了</string>
-    <string name="business_basic_list_delete_title">删除这一条？</string>
-    <string name="business_basic_list_delete_message">删掉之后，列表和详情里都不会再有了。</string>
-    <string name="business_basic_list_delete_ok">删除</string>
-    <string name="business_basic_list_delete_cancel">取消</string>
 
-    <!-- 登录表单页 -->
+    <!--
+      登录页（业务基础页面）。
+
+      资源名都带 `business_basic_` 前缀 —— 这是本模块 resourcePrefix 要求的，
+      免得以后模块多了、资源重名打架。
+
+      业务侧想换文案，**不用改这个文件**：在自己的 res/values/strings.xml 里
+      用同名 key 覆盖即可（Android 的资源合并规则：app 覆盖 library）。
+    -->
     <string name="business_basic_login_title">登录</string>
+
+    <!-- 这句是配合默认的 FakeAccountSource 用的演示文案。接真后端时请覆盖掉。 -->
     <string name="business_basic_login_hint">账号 admin、密码 123456 能登进去；故意输错可以看到失败提示。</string>
+
     <string name="business_basic_login_username">账号</string>
     <string name="business_basic_login_password">密码</string>
     <string name="business_basic_login_submit">登录</string>

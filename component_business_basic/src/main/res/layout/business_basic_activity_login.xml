@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 登录表单页：两个输入框 + 各自的错误提示 + 提交按钮 -->
+<!-- 登录页：两个输入框 + 各自的错误提示 + 提交按钮 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"

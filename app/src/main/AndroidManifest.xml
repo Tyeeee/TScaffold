@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <application
-        android:name=".App"
+        android:name="com.tscaffold.basic.BasicApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -12,6 +12,22 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.TScaffold">
+
+        <!--
+          本 App 自己的启动初始化（调试日志、接口地址）挂在这，Application 里不写初始化代码。
+          工程里所有初始化都是这个套路：写一个 Initializer，这边加一条 meta-data。
+          component_basic 的清单里也用同样的方式挂着 MMKV 的初始化。
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="com.demo.tscaffold.provider.AppInitializer"
+                android:value="androidx.startup" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -24,6 +40,39 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          四个示例页面（原在 component_business_basic 的清单里，随代码一起搬进 app）。
+          形态和场景各不相同，写自己的页面时挑最像的照抄：
+
+          - ListActivity   ：XML + Fragment + RecyclerView + 下拉刷新 + 分页 + 长按删除
+          - LoginActivity  ：XML + 输入框 + 边输边校验 + 防重复提交
+          - SearchActivity ：Compose + 输入防抖
+          - DetailActivity ：Compose + 带参数进来 + 把结果带回上一页
+
+          它们用 XML 写，所以挂 AppCompat 主题（Theme.TScaffold 是 Material 系，会闪退）。
+        -->
+        <activity
+            android:name=".ui.list.view.ListActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TScaffold.AppCompat" />
+
+        <activity
+            android:name=".ui.login.view.LoginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TScaffold.AppCompat"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.search.compose.SearchActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TScaffold.AppCompat"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ui.detail.compose.DetailActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TScaffold.AppCompat" />
     </application>
 
 </manifest>
