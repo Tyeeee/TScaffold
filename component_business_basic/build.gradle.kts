@@ -50,4 +50,6 @@ dependencies {
     // 单元测试：直接在电脑上跑，不用模拟器
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // 真起一个本地服务器跑"真实场景"测试（真 socket、真握手）
+    testImplementation(libs.okhttp.mockwebserver)
 }

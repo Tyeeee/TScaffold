@@ -3,25 +3,29 @@
 // 分层：app（应用外壳）→ component_business_basic（你的页面）→ component_common（MVI 核心）→ component_basic（基础能力）
 // 依赖与版本统一在 gradle/libs.versions.toml（Version Catalog）管理。
 // 说明：本机直连 dl.google.com 与 repo1.maven.org 经常 TLS 握手失败 / 卡住，
-//       所以解析仓库只用阿里云镜像（google 与 public 两个），不再回落到官方源。
-//       换到网络正常的机器上，把 google() 和 mavenCentral() 加回列表即可。
+//       所以国内镜像放最前面，而且**全工程统一用腾讯云这一个源**：
+//       它的 maven-public 一个仓库就覆盖了 androidx / Google Maven / Maven Central / 插件标记，
+//       Gradle 发行包也走同一个源（见 gradle/wrapper/gradle-wrapper.properties），
+//       免得一会儿阿里一会儿腾讯。官方源留在后面兜底，网络正常的机器会命中官方源。
 // ============================================================================
 pluginManagement {
     repositories {
-        maven(url = "https://maven.aliyun.com/repository/google") // Google Maven 镜像
-        maven(url = "https://maven.aliyun.com/repository/public") // Maven Central 镜像（Kotlin 插件在这里）
-        maven(url = "https://maven.aliyun.com/repository/gradle-plugin") // Gradle 插件门户镜像
+        maven(url = "https://mirrors.cloud.tencent.com/nexus/repository/maven-public/") // 国内镜像（统一腾讯云）
+        google()             // 官方兜底
+        mavenCentral()
+        gradlePluginPortal()
     }
 }
 plugins {
-    // 已禁用 foojay-resolver：其自动下载 JDK 需要访问 api.foojay.io（本机构建环境不可达）。
-    // 改用 gradle.properties 中 org.gradle.java.installations.paths 登记本地 JDK（含 Android Studio 自带 JBR 25）。
+    // 这里不放 foojay-resolver：本工程没有声明 toolchain，不需要 Gradle 自动下载 JDK，
+    // 也就不需要访问 api.foojay.io。Gradle 直接用启动它的那个 JVM 即可。
 }
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        maven(url = "https://maven.aliyun.com/repository/google") // Google Maven 镜像
-        maven(url = "https://maven.aliyun.com/repository/public") // Maven Central 镜像
+        maven(url = "https://mirrors.cloud.tencent.com/nexus/repository/maven-public/") // 国内镜像（统一腾讯云）
+        google()             // 官方兜底
+        mavenCentral()
     }
 }
 
