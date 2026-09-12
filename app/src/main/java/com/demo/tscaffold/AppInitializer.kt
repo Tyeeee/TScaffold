@@ -1,4 +1,4 @@
-package com.demo.tscaffold.provider
+package com.demo.tscaffold
 
 import android.content.Context
 import android.util.Log
@@ -9,12 +9,12 @@ import com.tscaffold.common.ui.viewmodel.MviLog
 /**
  * 本 App 自己的启动初始化 —— 挂到 AndroidX Startup 上，**Application 里不写初始化代码**。
  *
- * 这个工程里所有初始化都是同一个套路：写一个 Initializer 放进 `provider` 包，
- * 再去清单里 `androidx.startup.InitializationProvider` 的 meta-data 加一条指向它。
- * component_basic 里那条挂的是 MMKV（`com.tscaffold.basic.provider.MMKVInitializer`），
+ * 这个工程里所有初始化都是同一个套路：写一个 Initializer，再去清单里
+ * `androidx.startup.InitializationProvider` 的 meta-data 加一条指向它。
+ * component_basic 里那条挂的是 MMKV（`com.tscaffold.basic.mmkv.MMKVInitializer`），
  * 这里挂本 App 的配置。
  *
- * @see com.tscaffold.basic.provider.MMKVInitializer
+ * @see com.tscaffold.basic.mmkv.MMKVInitializer
  * @see com.tscaffold.basic.BasicApplication
  */
 class AppInitializer : Initializer<Unit> {

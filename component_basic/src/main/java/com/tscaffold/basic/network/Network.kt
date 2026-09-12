@@ -18,7 +18,7 @@ import com.tscaffold.basic.network.http.RetrofitService
  * }
  * ```
  * 然后把它的全类名加进清单里 `androidx.startup.InitializationProvider` 的 meta-data
- * （app 模块的 `com.demo.tscaffold.provider.AppInitializer` 就是这么写的，照着抄一份即可）。
+ * （app 模块的 `com.demo.tscaffold.AppInitializer` 就是这么写的，照着抄一份即可）。
  *
  * 里面的三样东西必须在第一次发请求 / 第一次握手**之前**设好：
  * - OkHttpClient 的地址与心跳都是构建时读的（[HttpClient.instance] 是懒加载，只构建一次）；

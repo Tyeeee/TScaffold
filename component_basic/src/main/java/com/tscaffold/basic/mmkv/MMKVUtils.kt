@@ -19,9 +19,8 @@ import com.tencent.mmkv.MMKV
  * val count = MMKVUtils.takeInt("count", 0)
  * ```
  *
- * 初始化只有 Startup 一条路：component_basic 用 AndroidX Startup 挂了
- * [com.tscaffold.basic.provider.MMKVInitializer]，进程一起来就配好了，
- * **不用（也不要）自己在 Application 里写初始化**。要换文件名或者加密，见 [init] 的说明。
+ * 初始化只有 Startup 一条路：component_basic 用 AndroidX Startup 挂了 [MMKVInitializer]，
+ * 进程一起来就配好了，**不用（也不要）自己在 Application 里写初始化**。要换文件名或者加密，见 [init] 的说明。
  */
 object MMKVUtils {
 
@@ -43,14 +42,12 @@ object MMKVUtils {
         get() = opened ?: open()
 
     /**
-     * 初始化。**只在 Startup 的 Initializer 里调**（默认那次是 `provider/MMKVInitializer` 调的）。
+     * 初始化。**只在 Startup 的 Initializer 里调**（默认那次是 [MMKVInitializer] 调的）。
      *
-     * 要换 storageId 或者加密，也不要写到 Application 里去 —— 在 `provider` 包里再写一个
-     * Initializer，在 `dependencies()` 里声明依赖 `MMKVInitializer`，这样它先跑（把默认配置铺好），
+     * 要换 storageId 或者加密，也不要写到 Application 里去 —— 再写一个 Initializer，
+     * 在 `dependencies()` 里声明依赖 [MMKVInitializer]，这样它先跑（把默认配置铺好），
      * 你再按自己的参数覆盖一次。这时还没有人读写过，覆盖是安全的：
      * ```
-     * import com.tscaffold.basic.provider.MMKVInitializer
-     *
      * class MyInitializer : Initializer<Unit> {
      *     override fun create(context: Context) {
      *         MMKVUtils.init(context, storageId = "my_app", cryptKey = "0123456789abcdef")
@@ -73,8 +70,8 @@ object MMKVUtils {
 
     private fun open(): MMKV {
         val context = context ?: error(
-            "MMKVUtils 还没初始化：Startup 会跑 com.tscaffold.basic.provider.MMKVInitializer，" +
-                "会走到这说明清单里那条 meta-data 被去掉了（或者在它之前就有人读写了存储）",
+            "MMKVUtils 还没初始化：Startup 会跑 MMKVInitializer，会走到这说明清单里那条 " +
+                "meta-data 被去掉了（或者在它之前就有人读写了存储）",
         )
         MMKV.initialize(context)
         val kv = if (cryptKey.isNullOrEmpty()) {

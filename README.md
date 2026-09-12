@@ -195,7 +195,7 @@ launcher.launch(LoginActivity.intent(context))
 | 文件 | 作用 |
 |---|---|
 | `MainActivity.kt` | 首页，三个按钮进示例 |
-| `AppInitializer.kt` | 本 App 自己的启动初始化：打开 MVI / HTTP 调试日志、配接口地址。放在 `app/.../provider/` 下，挂在 AndroidX Startup 上，`Application` 里不写初始化 |
+| `AppInitializer.kt` | 本 App 自己的启动初始化：打开 MVI / HTTP 调试日志、配接口地址。挂在 AndroidX Startup 上，`Application` 里不写初始化 |
 | `ui/theme/*` | Compose 主题 |
 
 ### component_basic（基础能力）
@@ -204,8 +204,8 @@ launcher.launch(LoginActivity.intent(context))
 
 | 文件 | 作用 |
 |---|---|
-| `BasicApplication.kt` | Application 基类，直接用即可。基础能力**不在这儿初始化** |
-| `provider/` | 启动初始化：现在有 `MMKVInitializer`，清单里 `androidx.startup.InitializationProvider` 的 meta-data 指向这里。一个能力一个 Initializer，能力自己的代码不往这放 |
+| `BasicApplication.kt` | Application 基类，直接用即可。基础能力**不在这儿初始化**，都挂在 Startup 的 Initializer 上 |
+| `AndroidManifest.xml` | 声明了 AndroidX Startup 的 Initializer（挂的是 `mmkv/MMKVInitializer`）；另外**预留**了一个 FileProvider（路径白名单在 `res/xml/basic_file_paths.xml`），分享/拍照时直接调 `FileProvider.getUriForFile(...)` |
 | `network/` | 网络底座：HTTP（OkHttp / Retrofit / 统一错误翻译）+ WebSocket |
 | `mmkv/` | MMKV 封装：写 `MMKVUtils.set(key, value)`、读 `MMKVUtils.takeXxx(key, default)`；初始化由 `MMKVInitializer` 挂在 AndroidX Startup 上，`Application` 里一行都不用写 |
 | `extensions/ViewModel.kt` | 想让多个页面共用同一份数据时用（App 级 ViewModel） |
@@ -657,7 +657,7 @@ class ArticleRemoteSource(private val api: ArticleApi = sharedArticleApi) : Arti
 | 跨业务复用的基础页面（登录页、错误页、空态页…） | `component_business_basic`：已经有一个登录页，照着它的结构加（`<页面>/{contract,viewmodel,view,data}`） |
 | 通用 UI 控件（弹窗、进度条、自定义 View……） | `component_common`，新建 `ui/widget` 目录 |
 | 网络、本地存储、日志、工具类 | `component_basic` |
-| 应用启动时要做的初始化 | **一律挂 AndroidX Startup**：在自己的 `provider` 包里写一个 `Initializer`，再去清单里 `androidx.startup.InitializationProvider` 的 meta-data 加一条（照抄 `app/.../provider/AppInitializer.kt` 或 `component_basic/.../provider/MMKVInitializer.kt`）。**不要写进 Application**，这个工程里没有那种写法 |
+| 应用启动时要做的初始化 | **一律挂 AndroidX Startup**：写一个 `Initializer`，再去清单里 `androidx.startup.InitializationProvider` 的 meta-data 加一条（照抄 `app` 的 `AppInitializer.kt` 或 `component_basic/.../mmkv/MMKVInitializer.kt`）。**不要写进 Application**，这个工程里没有那种写法 |
 | 新增第三方库 | 只改 `gradle/libs.versions.toml`，然后在对应模块 `build.gradle.kts` 里引用 |
 
 > 判断依据是**依赖方向**：谁依赖谁，谁就只能放下面。

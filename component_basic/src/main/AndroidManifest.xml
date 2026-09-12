@@ -4,7 +4,7 @@
 
     <!--
       basic（基础能力）
-      依赖了 component_basic 的模块，manifest 合并后就会带上这个 provider，
+      依赖了 component_basic 的模块，manifest 合并后就会带上这里声明的东西，
       Application 里不用再写初始化代码。
     -->
 
@@ -28,8 +28,26 @@
             android:exported="false"
             tools:node="merge">
             <meta-data
-                android:name="com.tscaffold.basic.provider.MMKVInitializer"
+                android:name="com.tscaffold.basic.mmkv.MMKVInitializer"
                 android:value="androidx.startup" />
+        </provider>
+
+        <!--
+          FileProvider（**预留**，现在没人用）：把应用内部的文件以 content:// 形式交给相机、
+          系统选择器或者别的 App，Android 7 以后不给 file:// 了。
+          路径白名单在同模块的 res/xml/basic_file_paths.xml，需要别的目录就往那加。
+
+          用法：FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+          authorities 用 applicationId 前缀，免得跟别的 App 撞车。
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/basic_file_paths" />
         </provider>
 
     </application>

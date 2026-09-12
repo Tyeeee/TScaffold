@@ -24,7 +24,7 @@
             android:exported="false"
             tools:node="merge">
             <meta-data
-                android:name="com.demo.tscaffold.provider.AppInitializer"
+                android:name="com.demo.tscaffold.AppInitializer"
                 android:value="androidx.startup" />
         </provider>
 

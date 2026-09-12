@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  给 FileProvider 用的路径白名单 —— 拍照、选文件、把文件分享给别的 App 时，
+  要用它把 File 转成 content:// 地址给对方。
+
+  现在只是**预留**：清单里的 provider 已经声明好了，业务要用的时候直接调
+  FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file) 即可。
+  文件要是放在下面这几个目录之外，再往这里加一条对应的 *_path。
+
+  故意不给 external-path（整个外部存储）：范围太大、还要存储权限，
+  App 专属的外部目录用 external-files-path / external-cache-path 就够了。
+-->
+<paths>
+    <!-- 应用内部的缓存目录：拍照、裁剪的临时文件一般放这 -->
+    <cache-path name="cache" path="." />
+    <!-- 应用内部的文件目录 -->
+    <files-path name="files" path="." />
+    <!-- 应用专属的外部目录（卸载时一起删掉），Android 10 以下也用这两个 -->
+    <external-cache-path name="external_cache" path="." />
+    <external-files-path name="external_files" path="." />
+</paths>
